@@ -1,0 +1,11 @@
+*.pyc
+*.pkl
+*.zip
+*.jpg
+*.csv
+*.setting
+**/__pycache__/
+**/dataset/
+**/data/
+**/gesture_recognition/
+**/resources/
