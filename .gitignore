@@ -3,6 +3,7 @@
 *.zip
 *.jpg
 *.csv
+*.js
 *.setting
 **/__pycache__/
 **/dataset/
