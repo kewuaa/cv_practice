@@ -24,7 +24,7 @@
        <item alignment="Qt::AlignHCenter">
         <widget class="QPushButton" name="exchangeButton">
          <property name="text">
-          <string>&lt;&lt;===&gt;&gt;</string>
+          <string/>
          </property>
         </widget>
        </item>

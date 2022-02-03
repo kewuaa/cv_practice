@@ -2,10 +2,9 @@
 * @Author: kewuaa
 * @Date:   2022-01-22 08:44:30
 * @Last Modified by:   None
-* @Last Modified time: 2022-01-22 13:23:02
+* @Last Modified time: 2022-02-03 20:09:33
 */
 var CryptoJS = require("crypto-js");
-var d = "{\"ids\":\"[1293886117]\",\"level\":\"standard\",\"encodeType\":\"aac\",\"csrf_token\":\"\"}"
 var e = "010001"
 var f = "00e0b509f6259df8642dbc35662901477df22677ec152b5ff68ace615bb7b725152b3ab17a876aea8a5aa76d2e417629ec4ee341f56135fccf695280104e0312ecbda92557c93870114af6c9d05c4f7f0c3685b7a46bee255932575cce10b424d813cfe4875d3e82047b97ddef52741d546b8e289dc6935b3ece0462db0a22b8e7"
 var g = "0CoJUm6Qyw8W8jud"
@@ -32,9 +31,6 @@ function get_params(d, g) {
     return b(first, a(16))
 }
 const argv = process.argv.slice(2)
-// var i = a(16)
 var i = "7qRdIQPyLJv6h2wV"
-// console.log(d)
-// console.log(argv[0])
-var first = b(argv[0], g)
+var first = b(argv.join(' '), g)
 console.log(b(first, i))

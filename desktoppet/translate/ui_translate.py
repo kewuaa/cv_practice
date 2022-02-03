@@ -98,7 +98,7 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"\u767e\u5ea6\u7ffb\u8bd1", None))
         self.action.setText(QCoreApplication.translate("MainWindow", u"\u590d\u5236\u7ffb\u8bd1\u7ed3\u679c", None))
-        self.exchangeButton.setText(QCoreApplication.translate("MainWindow", u"<<===>>", None))
+        self.exchangeButton.setText("")
         self.menu.setTitle(QCoreApplication.translate("MainWindow", u"\u7f16\u8f91", None))
     # retranslateUi
 

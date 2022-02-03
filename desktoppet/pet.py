@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-14 13:00:02
 # @Last Modified by:   None
-# @Last Modified time: 2022-01-21 17:58:49
+# @Last Modified time: 2022-02-03 17:47:19
 from sys import argv, exit
 import asyncio
 import random
@@ -17,13 +17,17 @@ from PySide2.QtWidgets import QVBoxLayout
 from PySide2.QtWidgets import QAction
 from PySide2.QtCore import Qt
 from PySide2.QtCore import QTimer
+from PySide2.QtCore import QThread
+from PySide2.QtCore import QCoreApplication
 from PySide2.QtGui import QImage
 from PySide2.QtGui import QPixmap
 from PySide2.QtGui import QIcon
 from PySide2.QtGui import QCursor
 from PySide2.QtUiTools import QUiLoader
+from qasync import QEventLoop
 
 from translate.translate import TransApp
+from music.music_player import MusicApp
 
 
 class Config:
@@ -94,15 +98,20 @@ class Pet(QWidget):
     def setSystemMenu(self):
         self.trans_app = TransApp()
         self.trans_app.ui.setWindowFlags(Qt.Tool)
+        self.music_app = MusicApp()
+        self.music_app.ui.setWindowFlags(Qt.Tool)
         icon = QIcon(QPixmap.fromImage(self.icon))
         quit_action = QAction('退出', parent=self)
         quit_action.triggered.connect(self.quit)
         quit_action.setIcon(icon)
         trans_action = QAction(
-            '百度翻译', parent=self, triggered=self.trans_app.ui.show)
+            '百度翻译', parent=self, triggered=self.trans_app.show)
+        music_action = QAction(
+            '网易云', parent=self, triggered=self.music_app.show)
         menu = QMenu('exit', parent=self)
         menu.addAction(quit_action)
         menu.addAction(trans_action)
+        menu.addAction(music_action)
         self.tray_icon = QSystemTrayIcon(parent=self)
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.setIcon(icon)
@@ -142,8 +151,9 @@ class Pet(QWidget):
 
     def quit(self):
         self.tray_icon = None
+        self.trans_app.ui.close()
         self.close()
-        exit()
+        QCoreApplication.instance().quit()
 
     def show(self):
         self.move(self.x * random.random(), self.y * random.random())
@@ -158,5 +168,8 @@ class Pet(QWidget):
 
 if __name__ == '__main__':
     application = QApplication(argv)
-    pet = Pet()
-    exit(application.exec_())
+    loop = QEventLoop(application)
+    asyncio.set_event_loop(loop)
+    with loop:
+        pet = Pet()
+        loop.run_forever()
