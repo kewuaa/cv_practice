@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-03 20:22:30
+# @Last Modified time: 2022-02-04 10:02:43
 from io import BytesIO
 import os
 import sys
@@ -195,7 +195,7 @@ class MusicApp(object):
             os.mkdir(self.IMG_PATH)
         if not os.path.exists(self.DOWNLOAD_PATH):
             os.mkdir(self.DOWNLOAD_PATH)
-        self.init_sess()
+        self.session = None
         self.song_length = 'oo'
         self.voice = 33
         self.is_mute = False
@@ -217,9 +217,9 @@ class MusicApp(object):
 
     def init_sess(self):
         async def get_sess():
-            return ClientSession()
-        loop = asyncio.get_running_loop()
-        self.session = loop.run_until_complete(get_sess())
+            if self.session is None or self.session.closed:
+                self.session = ClientSession()
+        asyncio.create_task(get_sess())
 
     def initUi(self):
         app = self
@@ -230,7 +230,8 @@ class MusicApp(object):
             def __init__(self):
                 super(PlayerUi, self).__init__()
                 self.setupUi(self)
-                self.setWindowIcon(app._get_icon(window_icon_py))
+                self.window_icon = app._get_icon(window_icon_py)
+                self.setWindowIcon(self.window_icon)
 
             def closeEvent(self, event):
                 result = QMessageBox.question(self, '请确认', '是否确认关闭',
@@ -276,9 +277,27 @@ class MusicApp(object):
         self.ui.voicehorizontalSlider.setValue(self.voice)
         self.ui.voicehorizontalSlider.valueChanged.connect(self.voice_change)
         self.ui.processhorizontalSlider.sliderMoved.connect(self.process_change)
+        self.ui.action_bat.triggered.connect(self.get_bat_file())
         self.ui.processhorizontalSlider.setEnabled(False)
         self.ui.downloadgroupBox.hide()
+        self.ui.resize(967, 686)
         asyncio.create_task(self.add_style())
+
+    @Slot()
+    def get_bat_file(self):
+        async def write():
+            async with aiofile.open_async(
+                    path := os.path.join(
+                        os.getcwd(), 'music_player.bat'), 'w') as f:
+                pass
+            async with aiofile.open_async(path, 'a') as f:
+                await f.write('@echo off\nif "%1" == "233" goto begin\n')
+                await f.write(r'mshta vbscript:createobject("wscript.shell").run("%~nx0 233",0)(window.close)&&exit')
+                await f.write(f'\n:begin\npython {__file__}')
+
+        def connect_func():
+            asyncio.create_task(write())
+        return connect_func
 
     async def add_style(self):
         def add_style_func():
@@ -424,6 +443,7 @@ class MusicApp(object):
             self.ui.downloadgroupBox.hide()
             self.ui.hideandshowpushButton.setIcon(self.hide_icon)
             self.ui.hideandshowpushButton.setToolTip('<b>展开下载列表</b>')
+            asyncio.get_running_loop().call_later(0.1, self.ui.resize, 967, 686)
 
     @Slot(int)
     def get_duration_length(self, song_length):
@@ -440,6 +460,7 @@ class MusicApp(object):
                 self.ui.processhorizontalSlider.setEnabled(True)
             if not self.ui.playpushButton.isEnabled():
                 self.ui.playpushButton.setEnabled(True)
+            self.ui.playpushButton.setIcon(self.pause_icon)
             self.ui.processhorizontalSlider.setValue(pos)
             self.ui.timelabel.setText(f'{current_pos}/{self.song_length}')
         else:
@@ -460,9 +481,8 @@ class MusicApp(object):
                             self.DOWNLOAD_PATH, f'{self.to_download[song_info]}.m4a')):
                     asyncio.create_task(self.download_music(song_info, path))
                 else:
-                    async def pop_item():
-                        self.to_download.pop(song_info)
-                    asyncio.create_task(pop_item())
+                    asyncio.get_running_loop().call_later(
+                        0.1, self.to_download.pop, song_info)
         else:
             QMessageBox.warning(self.ui, 'warning', 'no song could be downloaded')
 
@@ -512,6 +532,7 @@ class MusicApp(object):
     @Slot()
     def change_download_path(self):
         file_open = QFileDialog()
+        # file_open.setWindowFlags(Qt.Tool)
         file_open.setFileMode(QFileDialog.Directory)
         if file_open.exec_():
             path, *_ = file_open.selectedFiles()
@@ -645,6 +666,7 @@ class MusicApp(object):
             return url
 
     def show(self):
+        self.init_sess()
         self.ui.show()
 
 

@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-15 08:58:38
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-03 20:25:40
+# @Last Modified time: 2022-02-04 09:51:32
 # from pprint import pprint
 from collections import deque
 from sys import argv
@@ -154,7 +154,6 @@ class TransApp(object):
 
     def __init__(self):
         super(TransApp, self).__init__()
-        self.init_sess()
         self.task_queue = deque(maxlen=3)
         self.clipboard = QApplication.clipboard()
         self.translater = BaiduTranslater()
@@ -162,9 +161,9 @@ class TransApp(object):
 
     def init_sess(self):
         async def get_sess():
-            return ClientSession()
-        loop = asyncio.get_running_loop()
-        self.session = loop.run_until_complete(get_sess())
+            if self.session is None or self.session.closed:
+                self.session = ClientSession()
+        asyncio.create_task(get_sess())
 
     def init_Ui(self):
         init_from_lang = self.translater.FROM
@@ -260,6 +259,7 @@ class TransApp(object):
                 loop.call_later(1, self.clear_edit)
 
     def show(self):
+        self.init_sess()
         self.ui.show()
 
 

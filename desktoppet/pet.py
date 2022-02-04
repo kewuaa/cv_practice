@@ -2,8 +2,9 @@
 # @Author: kewuaa
 # @Date:   2022-01-14 13:00:02
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-03 17:47:19
+# @Last Modified time: 2022-02-04 08:40:01
 from sys import argv, exit
+import base64
 import asyncio
 import random
 import os
@@ -28,10 +29,10 @@ from qasync import QEventLoop
 
 from translate.translate import TransApp
 from music.music_player import MusicApp
+from pictures import *
 
 
 class Config:
-    PATH = os.path.join(os.path.split(__file__)[0], 'resources')
     ACTION_DISTRIBUTION = [
         ['1', '2', '3'],
         ['4', '5', '6', '7', '8', '9', '10', '11'],
@@ -47,7 +48,9 @@ class Config:
         ['38', '39', '40', '41'],
         ['42', '43', '44', '45', '46']
     ]
-    PETS = [f'pet_{i}' for i in range(1, 5)]
+    PETS = {}
+    for i in range(1, 5):
+        PETS[f'pet_{i}'] = ACTION_DISTRIBUTION
 
 
 class Pet(QWidget):
@@ -70,7 +73,8 @@ class Pet(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         # 重新渲染
         self.repaint()
-        self.initPet()
+        asyncio.get_running_loop().run_in_executor(None, self.initPet)
+        # self.initPet()
         self.setSystemMenu()
         vbox = QVBoxLayout()
         self.setLayout(vbox)
@@ -86,13 +90,13 @@ class Pet(QWidget):
         self.mouse_press_pos = None
 
     def initPet(self):
-        self.pet = random.choice(self.config.PETS)
-        img_file_path = os.path.join(self.config.PATH, self.pet)
+        self.pet = random.choice(list(self.config.PETS.keys()))
+        # img_file_path = os.path.join(self.config.PATH, self.pet)
         self.actions = []
-        for action in self.config.ACTION_DISTRIBUTION:
+        for action in self.config.PETS[self.pet]:
             self.actions.append(
-                [self.loadImage(os.path.join(img_file_path, f'shime{img}.png'))
-                 for img in action])
+                [self.loadImage(eval(self.pet)[int(index) - 1])
+                 for index in action])
         self.icon = self.actions[0][0]
 
     def setSystemMenu(self):
@@ -108,10 +112,11 @@ class Pet(QWidget):
             '百度翻译', parent=self, triggered=self.trans_app.show)
         music_action = QAction(
             '网易云', parent=self, triggered=self.music_app.show)
+        music_action.setIcon(self.music_app.ui.window_icon)
         menu = QMenu('exit', parent=self)
-        menu.addAction(quit_action)
-        menu.addAction(trans_action)
         menu.addAction(music_action)
+        menu.addAction(trans_action)
+        menu.addAction(quit_action)
         self.tray_icon = QSystemTrayIcon(parent=self)
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.setIcon(icon)
@@ -160,9 +165,12 @@ class Pet(QWidget):
         super(Pet, self).show()
 
     @staticmethod
-    def loadImage(img_path):
+    def loadImage(b64str):
+        b64content = b64str.encode()
+        data = base64.b64decode(b64content)
         img = QImage()
-        img.load(img_path)
+        # img.load(img_path)
+        img.loadFromData(data)
         return img
 
 

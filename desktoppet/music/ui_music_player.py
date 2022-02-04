@@ -17,7 +17,9 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(992, 562)
+        MainWindow.resize(1242, 562)
+        self.action_bat = QAction(MainWindow)
+        self.action_bat.setObjectName(u"action_bat")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_7 = QHBoxLayout(self.centralwidget)
@@ -189,11 +191,16 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 992, 22))
+        self.menubar.setGeometry(QRect(0, 0, 1242, 22))
+        self.menu = QMenu(self.menubar)
+        self.menu.setObjectName(u"menu")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
+
+        self.menubar.addAction(self.menu.menuAction())
+        self.menu.addAction(self.action_bat)
 
         self.retranslateUi(MainWindow)
 
@@ -202,6 +209,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MusicPlayer", None))
+        self.action_bat.setText(QCoreApplication.translate("MainWindow", u"\u5bfc\u51fabat\u811a\u672c\u6587\u4ef6", None))
         self.listengroupBox.setTitle(QCoreApplication.translate("MainWindow", u"\u64ad\u653e\u5217\u8868", None))
         self.searchButton.setText("")
         self.timelabel.setText(QCoreApplication.translate("MainWindow", u"--/--", None))
@@ -213,5 +221,6 @@ class Ui_MainWindow(object):
         self.downloadtoolButton.setText(QCoreApplication.translate("MainWindow", u"...", None))
         self.hideandshowpushButton.setText("")
         self.downloadgroupBox.setTitle(QCoreApplication.translate("MainWindow", u"\u4e0b\u8f7d\u5217\u8868", None))
+        self.menu.setTitle(QCoreApplication.translate("MainWindow", u"\u8bbe\u7f6e", None))
     # retranslateUi
 
