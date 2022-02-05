@@ -2,13 +2,14 @@
 # @Author: kewuaa
 # @Date:   2022-01-15 08:58:38
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-04 09:51:32
+# @Last Modified time: 2022-02-05 08:19:18
 # from pprint import pprint
 from collections import deque
-from sys import argv
-from sys import exit
-import json
 import os
+import sys
+current_path, _ = os.path.split(__file__)
+sys.path.append(os.path.join(current_path, '..'))
+import json
 import re
 import base64
 import asyncio
@@ -26,18 +27,18 @@ from PySide2.QtGui import QPixmap
 from PySide2.QtGui import QIcon
 from qasync import QEventLoop
 from hzy import fake_ua
+from hzy.aiofile import aiofile
 import requests as req
 # import execjs
 
 try:
     from .ui_translate import Ui_MainWindow
-    from .js_code import *
+    from .js_code import sign_js
 except ImportError:
     from ui_translate import Ui_MainWindow
-    from js_code import *
+    from js_code import sign_js
 
 
-current_path, _ = os.path.split(__file__)
 ua = fake_ua.UserAgent()
 cookie = 'BIDUPSID=4B1B005B6F2DBD2D11C57555E80B2740; PSTM=1640399284; BDRCVFR[-HoWM-pHJEc]=mk3SLVN4HKm; BAIDUID=4B1B005B6F2DBD2DB1DC4B80C0B3ACF2:FG=1; delPer=0; BAIDUID_BFESS=AC31DE3EC7C0DB23CDFBD6FA2CE1673F:FG=1; BDUSS=I1UnNxc2J3NkgtTjJld3c4QTBUcX5nY35hWXR6R2lvZUt1RDlHTGpPNi1YTzVoRUFBQUFBJCQAAAAAAAAAAAEAAACEADmlt-fs4b2jAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAL7PxmG-z8ZhSG; BDUSS_BFESS=I1UnNxc2J3NkgtTjJld3c4QTBUcX5nY35hWXR6R2lvZUt1RDlHTGpPNi1YTzVoRUFBQUFBJCQAAAAAAAAAAAEAAACEADmlt-fs4b2jAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAL7PxmG-z8ZhSG; __yjs_duid=1_15aafb3ad0d7e3082c8ae6e3fe3107ba1640602511741; BDRCVFR[feWj1Vr5u3D]=I67x6TjHwwYf0; H_WISE_SIDS=107313_110085_127969_164870_174434_179345_184441_184716_185240_185268_186635_186841_187828_188125_189326_189732_189755_189971_190145_190248_190473_190622_191067_191256_191369_191503_191810_192206_192237_192390_193144_193283_193560_194085_194130_194509_194519_194583_194996_195173_195188_195346_195478_195552_195578_195679_196046_196049_196230_196427_196833_196881_196940_197083_197242_197287_197314_197337_197470_197582_197711_197782_197832_198031_198034_198067_198074_198089_198188_198259_198420_198510_198537_198648_198664_198750_198901_198998_199023_199041_199163_199177_199468_199578_199677_199876_199971; ZD_ENTRY=google; PSINO=6; H_PS_PSSID=31254_26350; REALTIME_TRANS_SWITCH=1; FANYI_WORD_SWITCH=1; HISTORY_SWITCH=1; SOUND_SPD_SWITCH=1; SOUND_PREFER_SWITCH=1; APPGUIDE_10_0_2=1; BA_HECTOR=8lakagag0h8005a0521gu9bij0r; Hm_lvt_64ecd82404c51e03dc91cb9e8c025574=1642311095,1642320813,1642376794,1642377546; Hm_lpvt_64ecd82404c51e03dc91cb9e8c025574=1642377546; __yjs_st=2_YzM5NTI0ODA3NjNlZTBhM2VlZjkyZjgyMTk4ZWY4YjJmMDJiNjBiNTI3NDI4N2RmYTY4ODA4Zjg2NGU2MTBmYWYyOTA4MjRmNGYwYjViZjg0NzAzNmY0ZWZhMzQ0MDE5NzYzNDEzYzJhZmIwZmNkMzQ4ZmM1ZDMzZjU5ZTE2YmQ1MjE2MmIwMWRkNzA0YjVlZjNkZDhmZmQzZTkxNzNkZDNiNmEyNzA5ODkzOTZlYjA2YjY0MzU2Y2VhMDlmNTZmNTgzZTRkOGUzYTNmYzE0ZjYwYWEyM2IwMTIwZTUzZjIwYjAyN2Q5ZjE2ZDc3YzliZjkzZmJkMGU3MDdjYzAxN183X2JiY2VlY2Vk; ab_sr=1.0.1_OWExZjY3OTMyN2QwYzBkYTY2ZjdjMzBhNTA3ZGQ3MTliOTZmZmFhZGQxZTY4NTEyMDUzZDE3OTI5YjBlMzhjY2ViNTMxMzIwYWEwMzYwZWJhZGI5ZGY3MTQ4YWE3ZDk3OTNlYzk4NjUxZjk3Y2RlOTcwYWU5NTUwODkyMDNiZTRjNjRjZDNjNGQwZThkNTYzNWQzY2EwN2I3ODk3YjM0ODFhNmExMmQwMzIxNGMwZDU3ZWE5N2Q3ZTUwZTcyNDli'
 
@@ -52,16 +53,14 @@ class BaiduTranslater(object):
         'cookie': cookie,
     }
     JS_FILE_PATH = os.path.join(current_path, 'sign.js')
-    CMD = 'node {path} "{query}"'
+    CMD = 'node {path} {query}'
     FROM = '中文'
     TO = '英语'
     DOMAIN = '通用'
 
     def __init__(self, _from=None, to=None, domain=None):
         super(BaiduTranslater, self).__init__()
-        if not os.path.exists(self.JS_FILE_PATH):
-            with open(self.JS_FILE_PATH, 'w') as f:
-                f.write(base64.b64decode(sign_js.encode()).decode())
+        asyncio.create_task(self.load_js())
         if _from is not None:
             self.FROM = _from
         if to is not None:
@@ -81,6 +80,13 @@ class BaiduTranslater(object):
             'domain': self._domain_map[self.DOMAIN],
             'token': token,
         }
+
+    async def load_js(self):
+        if not os.path.exists(self.JS_FILE_PATH):
+            async with aiofile.open_async(self.JS_FILE_PATH, 'w') as f:
+                b64content = sign_js.encode()
+                content = base64.b64decode(b64content)
+                await f.write(content.decode())
 
     def __call__(self, query: str) -> str:
         """获取翻译结果."""
@@ -136,7 +142,7 @@ class BaiduTranslater(object):
     async def _get_sign(self, query: str) -> str:
         """获得sign参数."""
         proc = await asyncio.create_subprocess_shell(
-            self.CMD.format(path=f'{current_path}/sign.js', query=query),
+            self.CMD.format(path=self.JS_FILE_PATH, query=query),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
         stdout, stderr = await proc.communicate()
@@ -154,6 +160,7 @@ class TransApp(object):
 
     def __init__(self):
         super(TransApp, self).__init__()
+        self.session = None
         self.task_queue = deque(maxlen=3)
         self.clipboard = QApplication.clipboard()
         self.translater = BaiduTranslater()
@@ -265,7 +272,7 @@ class TransApp(object):
 
 def run_loop(as_tool=False):
     if (app := QApplication.instance()) is None:
-        app = QApplication(argv)
+        app = QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
     with loop:

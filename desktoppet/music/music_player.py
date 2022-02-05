@@ -2,14 +2,16 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-04 10:02:43
+# @Last Modified time: 2022-02-05 14:05:49
 from io import BytesIO
+from collections.abc import Coroutine
 import os
 import sys
+current_path, _ = os.path.split(__file__)
+sys.path.append(os.path.join(current_path, '..'))
 import base64
 import asyncio
 
-from hzy import fake_ua
 from hzy.aiofile import aiofile
 from PIL import Image
 from aiohttp import ClientSession
@@ -41,16 +43,14 @@ from qasync import QEventLoop
 
 try:
     from .pictures import *
-    from .js_code import *
+    from .wyy import wyy
+    from .kg import kg
     from .ui_music_player import Ui_MainWindow
 except ImportError:
     from pictures import *
-    from js_code import *
+    from wyy import wyy
+    from kg import kg
     from ui_music_player import Ui_MainWindow
-
-
-current_path, _ = os.path.split(__file__)
-ua = fake_ua.UserAgent()
 
 
 async def download(session, url, path):
@@ -63,86 +63,9 @@ async def download_img(session, url, path):
     res = await session.get(url)
     fp = BytesIO(await res.read())
     img = aiofile.AIOWrapper(Image.open(fp))
-    img = aiofile.AIOWrapper(await img.resize((800, 800), Image.ANTIALIAS))
+    img = aiofile.AIOWrapper(await img.resize((300, 300), Image.ANTIALIAS))
     img = aiofile.AIOWrapper(await img.convert('RGB'))
     await img.save(path)
-
-
-class Musicer(object):
-    """docstring for Musicer."""
-
-    URL = 'https://music.163.com/weapi/song/enhance/player/url/v1?csrf_token='
-    SEARCH_URL = 'https://music.163.com/weapi/cloudsearch/get/web?csrf_token='
-    HEADERS = {
-        'user-agent': '',
-        'cookie': '_ntes_nuid=c6b62f4920356fba00bb02b9ab8ffb6e; _ntes_nnid=4fb10a59e820fa78798fdffdfa1dcbcc,1640399690494; hb_MA-BFF5-63705950A31C_source=www.google.com.hk; _iuqxldmzr_=32; NMTID=00OggMHqS2StC6LaUBPh-O98krfkUoAAAF-ex-VNw; WNMCID=jdtbkl.1642743174682.01.0; WEVNSM=1.0.0; WM_TID=uWRfK7Me84ZEFBBBRUJq6C7aA7%2BSeboU; WM_NI=%2FV4N5Jo6ZG3%2Bv6UpcZc6GBokJ3fGI31ctIO85DwBFe8aql29Cgj%2B6C8RTxQtzi4JxuKk1r0MYn8cNmzTsNpcQDbpoHE3FgwRJGll5ZqpwtEcLRGdij7Vuf233QYfsei%2Fc0U%3D; WM_NIKE=9ca17ae2e6ffcda170e2e6ee84c63bf5b49ea6b66ba1968eb7d14f939f9abaf47b81f5e1acb64d8796bc82fc2af0fea7c3b92aed8afcafb842adea96a8b221b6ea9b91e252a1ea89a3ee618aedaaa8cc39f3bdbcaace34f79cb9a3c56ffcbfbf8db13381b9a6ccb549fc8e9c99d480bab7fcabfb7f89b5ff93b3479bb2f884cd67ba8cbdaff369939cae91ee4487ed8a88f65a8a99a48db852b3b0b995c869908e8985ec62f58abb87b139f18f9787f26fabf1add1d837e2a3; JSESSIONID-WYYY=HW13SDPOfx%2FFqo97Onz0zaiUoV351m%2BAJoZlZl4G41KTcn3h2oVK9ZkTEd40r%2FTdh%2FzjuRhxykV2pcCWIi8gjuKmVlc2Mag0ZAV9pgwYh4HQZRYQyD4qS3bP8uM1CMy5Dm7cKvql964nmGPnOkPA4OoB5s4HHYV69a4xzgMh3rWKIe0u%3A1642822349624; playerid=16777386',
-        'refer': 'https://music.163.com/',
-    }
-    ENCSECKEY = 'ddb9e95ecba455a303a46b36f291368947d49531f824f5c4adbea2ff7ce22a2e0615a837d727ced55fdbfa85b3590466a39b85749ee5845d29786a7727fd8f154f953ca755d533fe84aa0f100c767f6dbc8441a5ad35711706cb9cf662018025a4519405aa738af496cd3d01594d62821ed0f39b4af97dee184b26e655dd4737'
-    JS_FILE_PATH = os.path.join(current_path, 'music.js')
-    CMD = "node {path} {request_str}"
-    INFO_REQUEST_STR = [r'{\"hlpretag\":\"<span class="s-fc7">\",\"hlposttag\":\"</span>\",\"s\":\"',
-                        '',
-                        r'\",\"type\":\"1\",\"offset\":\"0\",\"total\":\"true\",\"limit\":\"30\",\"csrf_token\":\"\"}']
-    URL_REQUEST_STR = [r'{\"ids\":\"[',
-                       '',
-                       r']\",\"level\":\"standard\",\"encodeType\":\"aac\",\"csrf_token\":\"\"}']
-    # '{"ids": "[1293886117]","level":"standard","encodeType":"aac","csrf_token":""}'
-
-    def __init__(self):
-        super(Musicer, self).__init__()
-        if not os.path.exists(self.JS_FILE_PATH):
-            with open(self.JS_FILE_PATH, 'w') as f:
-                f.write(base64.b64decode(music_js.encode()).decode())
-
-    async def _get_song_info(self, session, song):
-        self.HEADERS['user-agent'] = ua.get_ua()
-        self.INFO_REQUEST_STR[1] = song
-        request_str = ''.join(self.INFO_REQUEST_STR)
-        data = {
-            'params': await self._get_params(request_str),
-            'encSecKey': self.ENCSECKEY,
-        }
-        res = await session.post(self.SEARCH_URL, headers=self.HEADERS, data=data)
-        try:
-            result_dict = await res.json(content_type=None)
-        except Exception as e:
-            print('error:', e)
-            raise e
-        else:
-            assert (songs := result_dict.get('result')) is not None, '出现未知错误'
-            songs = songs['songs']
-            # songs = [song['al'] for song in songs]
-        return songs
-
-    async def _get_song_url(self, session, _id):
-        self.HEADERS['user-agent'] = ua.get_ua()
-        self.URL_REQUEST_STR[1] = str(_id)
-        request_str = ''.join(self.URL_REQUEST_STR)
-        data = {
-            'params': await self._get_params(request_str),
-            'encSecKey': self.ENCSECKEY,
-        }
-        res = await session.post(self.URL, headers=self.HEADERS, data=data)
-        try:
-            result_dict = await res.json(content_type=None)
-        except Exception as e:
-            print('error:', e)
-            raise e
-        else:
-            url = result_dict['data'][0]['url']
-            assert url is not None, 'VIP或无版权歌曲，无法播放与下载'
-        return url
-
-    async def _get_params(self, request_str: str) -> str:
-        proc = await asyncio.create_subprocess_shell(
-            self.CMD.format(path=self.JS_FILE_PATH, request_str=request_str),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE)
-        stdout, stderr = await proc.communicate()
-        assert not stderr, f'subprocess err: {stderr.decode("gbk")}'
-        result = stdout.decode('utf-8').strip()
-        return result
 
 
 class MyDict(dict):
@@ -185,6 +108,8 @@ class MusicApp(object):
     DATA_PATH = f'{current_path}\\data'
     IMG_PATH = os.path.join(DATA_PATH, 'images')
     DOWNLOAD_PATH = os.path.join(DATA_PATH, 'musics')
+    SAVE_PATH = os.path.join(current_path, 'listen.list')
+    MAP = {'网易云': 'wyy', '酷狗': 'kg'}
 
     def __init__(self):
         super(MusicApp, self).__init__()
@@ -203,7 +128,7 @@ class MusicApp(object):
         self.listen_slm = QStringListModel()
         self.download_slm = QStringListModel()
         self.initUi()
-        self.musicer = Musicer()
+        self.musicer = {'wyy': wyy.Musicer(), 'kg': kg.Musicer()}
         self.music_player = QMediaPlayer(parent=self.ui)
         self.music_play_list = QMediaPlaylist(parent=self.ui)
         self.music_play_list.setPlaybackMode(QMediaPlaylist.Loop)
@@ -212,8 +137,17 @@ class MusicApp(object):
         self.music_player.positionChanged.connect(self.position_change)
         self.music_player.setVolume(self.voice)
         self.current_search = None
+        self.current_musicer = None
         self.to_listen = MyDict(self.listen_slm)
+        asyncio.create_task(self.load_listen_list())
         self.to_download = MyDict(self.download_slm)
+
+    async def load_listen_list(self):
+        if os.path.exists(self.SAVE_PATH):
+            async with aiofile.open_async(self.SAVE_PATH, 'r') as f:
+                for line in await f.readlines():
+                    song_info, _id = line.strip().split('===')
+                    self.to_listen[song_info] = _id
 
     def init_sess(self):
         async def get_sess():
@@ -238,9 +172,19 @@ class MusicApp(object):
                                               QMessageBox.Yes | QMessageBox.No)
                 if result == QMessageBox.Yes:
                     asyncio.create_task(app.session.close())
+                    self.save()
                     event.accept()
                 else:
                     event.ignore()
+
+            @staticmethod
+            def save():
+                if app.to_listen:
+                    with open(app.SAVE_PATH, 'w') as f:
+                        pass
+                    with open(app.SAVE_PATH, 'a') as f:
+                        for k, v in app.to_listen.items():
+                            f.write(f'{k}==={v}\n')
         # self.ui = QUiLoader().load('ui_music_player.ui')
         self.ui = PlayerUi()
         self.ui.searchButton.clicked.connect(self.search)
@@ -384,6 +328,12 @@ class MusicApp(object):
         if self.to_listen:
             self.to_listen.clear()
             self.music_play_list.clear()
+            self.ui.processhorizontalSlider.setEnabled(False)
+            self.ui.lastpushButton.setEnabled(False)
+            self.ui.nextpushButton.setEnabled(False)
+            self.ui.modepushButton.setEnabled(False)
+            self.ui.playpushButton.setEnabled(False)
+            self.ui.playpushButton.setIcon(self.play_icon)
 
     @Slot()
     def clear_download_items(self):
@@ -428,10 +378,13 @@ class MusicApp(object):
     @Slot()
     def search(self):
         song = self.ui.inputlineEdit.text()
-        if song and song != self.current_search:
-            self.clear_layout()
-            asyncio.create_task(self.search_song(song))
-            self.current_search = song
+        musicer = self.ui.musicercomboBox.currentText()
+        if song:
+            if song != self.current_search or musicer != self.current_musicer:
+                self.clear_layout()
+                asyncio.create_task(self.search_song(song, self.MAP[musicer]))
+                self.current_search = song
+                self.current_musicer = musicer
 
     @Slot()
     def hide_and_show(self):
@@ -458,17 +411,18 @@ class MusicApp(object):
         if (current_pos := self.format_time(pos)) != self.song_length:
             if not self.ui.processhorizontalSlider.isEnabled():
                 self.ui.processhorizontalSlider.setEnabled(True)
+                self.ui.playpushButton.setIcon(self.pause_icon)
+                self.ui.playpushButton.setToolTip('<b>暂停</b>')
             if not self.ui.playpushButton.isEnabled():
                 self.ui.playpushButton.setEnabled(True)
-            self.ui.playpushButton.setIcon(self.pause_icon)
             self.ui.processhorizontalSlider.setValue(pos)
             self.ui.timelabel.setText(f'{current_pos}/{self.song_length}')
         else:
             self.ui.processhorizontalSlider.setValue(0)
             self.ui.processhorizontalSlider.setEnabled(False)
             self.ui.processhorizontalSlider.setToolTip('')
-            self.ui.playpushButton.setEnabled(False)
             self.ui.timelabel.setText('--/--')
+            self.ui.playpushButton.setEnabled(False)
             self.ui.playpushButton.setIcon(self.play_icon)
             self.ui.playpushButton.setToolTip('<b>播放</b>')
 
@@ -478,7 +432,7 @@ class MusicApp(object):
             for song_info in self.to_download.keys():
                 if not os.path.exists(
                         path := os.path.join(
-                            self.DOWNLOAD_PATH, f'{self.to_download[song_info]}.m4a')):
+                            self.DOWNLOAD_PATH, f'{"_".join(self.to_download[song_info])}.m4a')):
                     asyncio.create_task(self.download_music(song_info, path))
                 else:
                     asyncio.get_running_loop().call_later(
@@ -569,6 +523,7 @@ class MusicApp(object):
     def list_play(self, qmodel_list):
         index = qmodel_list.row()
         self.ui.playpushButton.setIcon(self.pause_icon)
+        self.ui.playpushButton.setToolTip('<b>暂停</b>')
         self.music_player.setPlaylist(self.music_play_list)
         self.music_play_list.setCurrentIndex(index)
         self.music_player.play()
@@ -579,11 +534,12 @@ class MusicApp(object):
 
     @Slot()
     def last_song(self):
-        if not self.music_play_list.currentIndex():
-            self.music_play_list.setCurrentIndex(
-                self.music_play_list.mediaCount() - 1)
-        else:
-            self.music_play_list.previous()
+        # if not self.music_play_list.currentIndex():
+        #     self.music_play_list.setCurrentIndex(
+        #         self.music_play_list.mediaCount() - 1)
+        # else:
+        #     self.music_play_list.previous()
+        self.music_play_list.previous()
 
     @Slot()
     def play_pause(self):
@@ -599,43 +555,68 @@ class MusicApp(object):
 
     @Slot()
     def next_song(self):
-        if self.music_play_list.currentIndex() == self.music_play_list.mediaCount() - 1:
-            self.music_play_list.setCurrentIndex(0)
-        else:
-            self.music_play_list.next()
+        # if self.music_play_list.currentIndex() == self.music_play_list.mediaCount() - 1:
+        #     self.music_play_list.setCurrentIndex(0)
+        # else:
+        #     self.music_play_list.next()
+        self.music_play_list.next()
 
-    async def search_song(self, song):
+    async def search_song(self, song, musicer):
         try:
-            result = await self.musicer._get_song_info(self.session, song)
+            songs_info = await self.musicer[musicer]._get_song_info(self.session, song)
         except AssertionError as e:
             QMessageBox.critical(self.ui, 'error', str(e))
             self.ui.inputlineEdit.clear()
         else:
-            for song_info in result:
-                item = QWidget()
-                item.setLayout(hbox := QHBoxLayout())
-                hbox.addWidget(add_music_button := QToolButton())
-                hbox.addWidget(add_button := QToolButton())
-                hbox.addWidget(
-                    song_label := SongLabel(
-                        text := f"{song_info['name']}-->{song_info['ar'][0]['name']}-->《{song_info['al']['name']}》"))
-                add_music_button.clicked.connect(self.add_listen(text, song_info['id']))
-                add_button.clicked.connect(self.add_download(text, song_info['id']))
-                song_label.doubleclicked.connect(self.single_play(text, song_info['id']))
-                add_music_button.setIcon(self.add_music_icon)
-                add_button.setIcon(self.add_icon)
-                add_music_button.setAutoRaise(True)
-                add_button.setAutoRaise(True)
-                add_music_button.setToolTip('<b>添加至播放列表</b>')
-                add_button.setToolTip('<b>添加至下载列表</b>')
-                self.layout.addWidget(item)
-                if not os.path.exists(
-                        path := os.path.join(
-                            self.IMG_PATH, f"{song_info['al']['pic']}.jpg")):
-                    asyncio.create_task(
-                        download_img(self.session, song_info['al']['picUrl'], path))
-                song_label.setToolTip(f'<img src={path} >')
-                await asyncio.sleep(0)
+            for song_info in songs_info:
+                asyncio.create_task(self.show_label(song_info))
+                # item = QWidget()
+                # item.setLayout(hbox := QHBoxLayout())
+                # hbox.addWidget(add_music_button := QToolButton())
+                # hbox.addWidget(add_button := QToolButton())
+                # hbox.addWidget(song_label := SongLabel(song_info.text))
+                # add_music_button.clicked.connect(self.add_listen(song_info.text, song_info.id))
+                # add_button.clicked.connect(self.add_download(song_info.text, song_info.id))
+                # song_label.doubleclicked.connect(self.single_play(song_info.text, song_info.id))
+                # add_music_button.setIcon(self.add_music_icon)
+                # add_button.setIcon(self.add_icon)
+                # add_music_button.setAutoRaise(True)
+                # add_button.setAutoRaise(True)
+                # add_music_button.setToolTip('<b>添加至播放列表</b>')
+                # add_button.setToolTip('<b>添加至下载列表</b>')
+                # self.layout.addWidget(item)
+                # if not os.path.exists(
+                #         path := os.path.join(
+                #             self.IMG_PATH, song_info.pic)):
+                #     asyncio.create_task(
+                #         download_img(self.session, song_info.pic_url, path))
+                # song_label.setToolTip(f'<img src={path} >')
+                # await asyncio.sleep(0)
+
+    async def show_label(self, song_info):
+        if isinstance(song_info, Coroutine):
+            song_info = await song_info
+        item = QWidget()
+        item.setLayout(hbox := QHBoxLayout())
+        hbox.addWidget(add_music_button := QToolButton())
+        hbox.addWidget(add_button := QToolButton())
+        hbox.addWidget(song_label := SongLabel(song_info.text))
+        add_music_button.clicked.connect(self.add_listen(song_info.text, song_info.id))
+        add_button.clicked.connect(self.add_download(song_info.text, song_info.id))
+        song_label.doubleclicked.connect(self.single_play(song_info.text, song_info.id))
+        add_music_button.setIcon(self.add_music_icon)
+        add_button.setIcon(self.add_icon)
+        add_music_button.setAutoRaise(True)
+        add_button.setAutoRaise(True)
+        add_music_button.setToolTip('<b>添加至播放列表</b>')
+        add_button.setToolTip('<b>添加至下载列表</b>')
+        self.layout.addWidget(item)
+        if not os.path.exists(
+                path := os.path.join(
+                    self.IMG_PATH, song_info.pic)):
+            asyncio.create_task(
+                download_img(self.session, song_info.pic_url, path))
+        song_label.setToolTip(f'<img src={path} >')
 
     async def download_music(self, song_info, path):
         try:
@@ -646,7 +627,7 @@ class MusicApp(object):
 
     async def _get_url(self, _id):
         try:
-            url = await self.musicer._get_song_url(self.session, _id)
+            url = await self.musicer[_id[1]]._get_song_url(self.session, _id[0])
         except AssertionError as e:
             asyncio.current_task().cancel()
             try:
