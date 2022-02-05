@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 13:30:14
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 14:55:45
+# @Last Modified time: 2022-02-05 17:48:06
 from collections import namedtuple
 import os
 import asyncio
@@ -19,7 +19,7 @@ except ImportError:
     from cookie import cookie
 
 
-current_path, _ = os.path.split(__file__)
+current_path, _ = os.path.split(os.path.realpath(__file__))
 ua = fake_ua.UserAgent()
 SongInfo = namedtuple('SongInfo', ['text', 'id', 'pic', 'pic_url'])
 

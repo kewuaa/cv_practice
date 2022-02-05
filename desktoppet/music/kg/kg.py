@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 16:17:25
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 14:33:48
+# @Last Modified time: 2022-02-05 18:46:59
 from collections import namedtuple
 from urllib.parse import quote
 import os
@@ -24,7 +24,7 @@ except ImportError:
     from js_code import kg_js
 
 
-current_path, _ = os.path.split(__file__)
+current_path, _ = os.path.split(os.path.realpath(__file__))
 ua = fake_ua.UserAgent()
 SongInfo = namedtuple('SongInfo', ['text', 'id', 'pic', 'pic_url'])
 
@@ -47,7 +47,7 @@ class Musicer(object):
         super(Musicer, self).__init__()
         asyncio.create_task(self.load_js())
         self.match = re.compile('.*?\(([\\s\\S]*)\)')
-        self.__id_map = {}
+        self._id_map = {}
 
     async def load_js(self):
         if not os.path.exists(self.JS_FILE_PATH):
@@ -87,7 +87,7 @@ class Musicer(object):
             f'error during getting song url: {error}'
         data = result_dict['data']
         # data['lyrics'] 歌词
-        self.__id_map[album_id] = data.get('play_url')
+        self._id_map[album_id] = data.get('play_url')
         return SongInfo(
             f'酷狗: {data["song_name"]}-->{data["author_name"]}-->《{data["album_name"]}》',
             (str(album_id), 'kg'),
@@ -95,7 +95,7 @@ class Musicer(object):
             pic_url)
 
     async def _get_song_url(self, session, _id):
-        assert (url := self.__id_map.get(str(_id))) is not None, 'VIP或无版权歌曲，无法播放与下载'
+        assert (url := self._id_map.get(str(_id))) is not None, 'VIP或无版权歌曲，无法播放与下载'
         return url
 
     async def _get_params(self, encseckey):

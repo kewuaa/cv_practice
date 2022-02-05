@@ -2,11 +2,11 @@
 # @Author: kewuaa
 # @Date:   2022-01-14 13:00:02
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-04 08:40:01
-from sys import argv, exit
+# @Last Modified time: 2022-02-05 17:49:24
 import base64
 import asyncio
 import random
+import sys
 import os
 
 from PySide2.QtWidgets import QApplication
@@ -175,7 +175,7 @@ class Pet(QWidget):
 
 
 if __name__ == '__main__':
-    application = QApplication(argv)
+    application = QApplication(sys.argv)
     loop = QEventLoop(application)
     asyncio.set_event_loop(loop)
     with loop:

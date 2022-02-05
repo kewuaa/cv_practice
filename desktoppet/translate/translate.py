@@ -2,12 +2,12 @@
 # @Author: kewuaa
 # @Date:   2022-01-15 08:58:38
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 08:19:18
+# @Last Modified time: 2022-02-05 18:05:02
 # from pprint import pprint
 from collections import deque
 import os
 import sys
-current_path, _ = os.path.split(__file__)
+current_path, _ = os.path.split(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
 import json
 import re
@@ -18,8 +18,6 @@ from lxml.html import fromstring
 from aiohttp import ClientSession
 from PySide2.QtWidgets import QApplication
 from PySide2.QtWidgets import QMainWindow
-# from PySide2.QtCore import QThread
-# from PySide2.QtCore import QTimer
 from PySide2.QtCore import Signal
 from PySide2.QtCore import Slot
 from PySide2.QtCore import Qt
@@ -67,9 +65,6 @@ class BaiduTranslater(object):
             self.TO = to
         if domain is not None:
             self.DOMAIN = domain
-        # with open('sign.js', 'r') as f:
-        #     js_code = f.read()
-        # self._get_sign_func = execjs.compile(js_code)
         res = req.get(self.BASE_URL, headers=self.HEADERS).text
         token, self._lang_map = self._get_token_and_map(res)
         self._domain_map = self._get_domains_map(res)
@@ -87,18 +82,6 @@ class BaiduTranslater(object):
                 b64content = sign_js.encode()
                 content = base64.b64decode(b64content)
                 await f.write(content.decode())
-
-    def __call__(self, query: str) -> str:
-        """获取翻译结果."""
-        sign = self._get_sign(query)
-        self.HEADERS['user-agent'] = ua.get_ua()
-        self.data.update({'sign': sign, 'query': query})
-        result = req.post(
-            self.POST_URL, headers=self.HEADERS, data=self.data).json()
-        assert (trans_result := result.get('trans_result')) is not None, \
-            '出现未知错误'
-        trans_result = trans_result['data'][0]['dst']
-        return trans_result
 
     async def async_trans(self, session, query: str) -> str:
         """异步获取翻译结果."""

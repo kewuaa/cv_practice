@@ -2,13 +2,14 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 14:05:49
+# @Last Modified time: 2022-02-05 19:35:11
 from io import BytesIO
 from collections.abc import Coroutine
 import os
 import sys
-current_path, _ = os.path.split(__file__)
+current_path, _ = os.path.split(os.path.realpath(__file__))
 sys.path.append(os.path.join(current_path, '..'))
+import json
 import base64
 import asyncio
 
@@ -108,7 +109,8 @@ class MusicApp(object):
     DATA_PATH = f'{current_path}\\data'
     IMG_PATH = os.path.join(DATA_PATH, 'images')
     DOWNLOAD_PATH = os.path.join(DATA_PATH, 'musics')
-    SAVE_PATH = os.path.join(current_path, 'listen.list')
+    SAVE_PATH = os.path.join(DATA_PATH, 'listen.list')
+    DUMP_PATH = os.path.join(DATA_PATH, 'kg_id.map')
     MAP = {'网易云': 'wyy', '酷狗': 'kg'}
 
     def __init__(self):
@@ -143,10 +145,16 @@ class MusicApp(object):
         self.to_download = MyDict(self.download_slm)
 
     async def load_listen_list(self):
+        if os.path.exists(self.DUMP_PATH):
+            async with aiofile.open_async(self.DUMP_PATH, 'r') as f:
+                self.musicer['kg']._id_map.update(
+                    await aiofile.AsyncFuncWrapper(json.loads)(await f.read()))
         if os.path.exists(self.SAVE_PATH):
             async with aiofile.open_async(self.SAVE_PATH, 'r') as f:
                 for line in await f.readlines():
-                    song_info, _id = line.strip().split('===')
+                    song_info, _id = line.strip().split('^3^')
+                    _id = tuple(_id.split('^_^'))
+                    self.music_play_list.addMedia(await self._get_mediacontent(_id))
                     self.to_listen[song_info] = _id
 
     def init_sess(self):
@@ -184,7 +192,12 @@ class MusicApp(object):
                         pass
                     with open(app.SAVE_PATH, 'a') as f:
                         for k, v in app.to_listen.items():
-                            f.write(f'{k}==={v}\n')
+                            f.write(f'{k}^3^{"^_^".join(v)}\n')
+                    if to_dump := {v[0]: app.musicer['kg']._id_map[v[0]]
+                                   for _, v in app.to_listen.items()
+                                   if v[1] == 'kg'}:
+                        with open(app.DUMP_PATH, 'w') as f:
+                            json.dump(to_dump, f)
         # self.ui = QUiLoader().load('ui_music_player.ui')
         self.ui = PlayerUi()
         self.ui.searchButton.clicked.connect(self.search)
@@ -232,7 +245,7 @@ class MusicApp(object):
         async def write():
             async with aiofile.open_async(
                     path := os.path.join(
-                        os.getcwd(), 'music_player.bat'), 'w') as f:
+                        os.path.expanduser('~'), 'Desktop', 'music_player.bat'), 'w') as f:
                 pass
             async with aiofile.open_async(path, 'a') as f:
                 await f.write('@echo off\nif "%1" == "233" goto begin\n')
