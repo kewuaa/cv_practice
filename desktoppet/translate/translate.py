@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-15 08:58:38
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 19:47:06
+# @Last Modified time: 2022-02-05 20:46:02
 # from pprint import pprint
 from collections import deque
 import os
@@ -172,7 +172,8 @@ class TransApp(object):
                 self.setupUi(self)
 
             def closeEvent(self, event):
-                asyncio.create_task(app.session.close())
+                if app.session is not None and not app.session.closed:
+                    asyncio.create_task(app.session.close())
                 super(TransUi, self).closeEvent(event)
 
         # self.ui = QUiLoader().load('ui_translate.ui')

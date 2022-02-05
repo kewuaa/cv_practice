@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 20:22:11
+# @Last Modified time: 2022-02-05 20:49:51
 from io import BytesIO
 from collections.abc import Coroutine
 import os
@@ -178,7 +178,8 @@ class MusicApp(object):
                 result = QMessageBox.question(self, '请确认', '是否确认关闭',
                                               QMessageBox.Yes | QMessageBox.No)
                 if result == QMessageBox.Yes:
-                    asyncio.create_task(app.session.close())
+                    if app.session is not None and not app.session.closed:
+                        asyncio.create_task(app.session.close())
                     self.save()
                     event.accept()
                 else:
