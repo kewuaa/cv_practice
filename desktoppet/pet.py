@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-14 13:00:02
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 17:49:24
+# @Last Modified time: 2022-02-05 20:24:23
 import base64
 import asyncio
 import random
@@ -17,6 +17,7 @@ from PySide2.QtWidgets import QSystemTrayIcon
 from PySide2.QtWidgets import QVBoxLayout
 from PySide2.QtWidgets import QAction
 from PySide2.QtCore import Qt
+from PySide2.QtCore import Slot
 from PySide2.QtCore import QTimer
 from PySide2.QtCore import QThread
 from PySide2.QtCore import QCoreApplication
@@ -27,6 +28,7 @@ from PySide2.QtGui import QCursor
 from PySide2.QtUiTools import QUiLoader
 from qasync import QEventLoop
 
+from hzy.aiofile import aiofile
 from translate.translate import TransApp
 from music.music_player import MusicApp
 from pictures import *
@@ -113,7 +115,10 @@ class Pet(QWidget):
         music_action = QAction(
             '网易云', parent=self, triggered=self.music_app.show)
         music_action.setIcon(self.music_app.ui.window_icon)
+        action_bat = QAction(
+            '导出bat脚本文件', parent=self, triggered=self.get_bat_file())
         menu = QMenu('exit', parent=self)
+        menu.addAction(action_bat)
         menu.addAction(music_action)
         menu.addAction(trans_action)
         menu.addAction(quit_action)
@@ -121,6 +126,22 @@ class Pet(QWidget):
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.setIcon(icon)
         self.tray_icon.show()
+
+    @Slot()
+    def get_bat_file(self):
+        async def write():
+            async with aiofile.open_async(
+                    path := os.path.join(
+                        os.path.expanduser('~'), 'Desktop', 'pet.bat'), 'w') as f:
+                pass
+            async with aiofile.open_async(path, 'a') as f:
+                await f.write('@echo off\nif "%1" == "233" goto begin\n')
+                await f.write(r'mshta vbscript:createobject("wscript.shell").run("%~nx0 233",0)(window.close)&&exit')
+                await f.write(f'\n:begin\npython {__file__}')
+
+        def connect_func():
+            asyncio.create_task(write())
+        return connect_func
 
     def setImage(self, img):
         self.image.setPixmap(QPixmap.fromImage(img))

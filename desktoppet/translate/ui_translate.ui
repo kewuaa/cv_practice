@@ -79,6 +79,7 @@
      <string>编辑</string>
     </property>
     <addaction name="action"/>
+    <addaction name="action_bat"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -86,6 +87,11 @@
   <action name="action">
    <property name="text">
     <string>复制翻译结果</string>
+   </property>
+  </action>
+  <action name="action_bat">
+   <property name="text">
+    <string>导出bat脚本文件</string>
    </property>
   </action>
  </widget>

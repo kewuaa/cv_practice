@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-15 08:58:38
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 18:05:02
+# @Last Modified time: 2022-02-05 19:47:06
 # from pprint import pprint
 from collections import deque
 import os
@@ -198,7 +198,24 @@ class TransApp(object):
         self.ui.exchangeButton.setIcon(exchange_pixmap)
         self.ui.exchangeButton.clicked.connect(self.exchange)
         self.ui.action.triggered.connect(self.copy)
+        self.ui.action_bat.triggered.connect(self.get_bat_file())
         # self.ui.show()
+
+    @Slot()
+    def get_bat_file(self):
+        async def write():
+            async with aiofile.open_async(
+                    path := os.path.join(
+                        os.path.expanduser('~'), 'Desktop', 'translater.bat'), 'w') as f:
+                pass
+            async with aiofile.open_async(path, 'a') as f:
+                await f.write('@echo off\nif "%1" == "233" goto begin\n')
+                await f.write(r'mshta vbscript:createobject("wscript.shell").run("%~nx0 233",0)(window.close)&&exit')
+                await f.write(f'\n:begin\npython {__file__}')
+
+        def connect_func():
+            asyncio.create_task(write())
+        return connect_func
 
     def reset_data(self, key: str) -> 'callable':
         map_dict = self.translater._map_dict
