@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-15 08:58:38
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 20:46:02
+# @Last Modified time: 2022-02-09 15:24:07
 # from pprint import pprint
 from collections import deque
 import os
@@ -59,6 +59,7 @@ class BaiduTranslater(object):
     def __init__(self, _from=None, to=None, domain=None):
         super(BaiduTranslater, self).__init__()
         asyncio.create_task(self.load_js())
+        self.sess = ClientSession()
         if _from is not None:
             self.FROM = _from
         if to is not None:
@@ -76,6 +77,12 @@ class BaiduTranslater(object):
             'token': token,
         }
 
+    @property
+    def session(self):
+        if self.sess.closed:
+            self.sess = ClientSession()
+        return self.sess
+
     async def load_js(self):
         if not os.path.exists(self.JS_FILE_PATH):
             async with aiofile.open_async(self.JS_FILE_PATH, 'w') as f:
@@ -83,12 +90,12 @@ class BaiduTranslater(object):
                 content = base64.b64decode(b64content)
                 await f.write(content.decode())
 
-    async def async_trans(self, session, query: str) -> str:
+    async def async_trans(self, query: str) -> str:
         """异步获取翻译结果."""
         sign = await self._get_sign(query)
         self.HEADERS['user-agent'] = ua.get_ua()
         self.data.update({'sign': sign, 'query': query})
-        async with session.post(
+        async with self.session.post(
                 self.POST_URL, headers=self.HEADERS, data=self.data) as response:
             result = await response.json()
             assert (trans_result := result.get('trans_result')) is not None, \
@@ -134,6 +141,9 @@ class BaiduTranslater(object):
         result = stdout.decode('utf-8').strip()
         return result
 
+    async def close(self):
+        await self.sess.close()
+
 
 exchange_py = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfjAQkDAC7C/BYgAAADZklEQVRo3u2Zy08TURTGf9QiKFarKKWlLgiaqNGYGOPCd0xcuMVFlwpxo27EBS78A2wNAWGlhsSFysOtEtwYFWWBYoIJLRtlg2gNIG+llHZcFIY7w7Sd6QxMonx3c+feufN959y555xOYR3r+N+RtwrPdFIMjLFgj0kegoSJEKLUDnonQaTF1orXDvvDsoAkbWsvQRQgIWWXsMFiATF2c0K4PoifbmbW0gcltJDQ7wVnxoc5KaKAfEOHNUkDXs4KIwGghh/GBLg4wDEOU04xboMbJeFSjQSAG0T1O7GKTkZIKhxptoWyeHsRBVTylpil1KkWxpN9C3zUUsVWQw63EPvoWAXLs2yBU6C/z5kV83+YJYZkyBAJF27VWDsN2slp6YD5aOaCYiZOP+/o5iujJAzQJ/ER4pxi7Bk1fM+0qJBG1Tvfx3XKcBjeRijhqSoQtePT8LwHz7L/K5kUFsRopiIH6tSDg6q916JPpewwd1IxchdvhAVx6lYEEv1QJyNt65dEJngAcElx7p+wPWd68BDJQq8UOQ5beS4s6WWPCXpwEhKSkE/zHj/fBEZOEpUv5qg2RZ+yL0SEAe6mzYF+hkQBt4nLFz2W1HGqNzyzACdHhVtf6c9YGbDAT/03O9gr93/zyQJ6g3BQJvdnGbRDwPKZn+eXHQKWqx3JUMzPHflCiE/kEu3Nwk2+3J+2Q0A5RXJ/2A4BR9gs97/oKhSx8hdvKeflfoJehKA4hD/tohARwgS1C0tDqGZOZoxySo8AL63yPUF9xXVaVPBRYHzBNhiXL/s17fPSKlRLYVM+cPNYUfhcBngoF1BadauSXqKfkpzpXdQJiU+iK/UsH0EiRAhp2Kam1/37RtP5zYrCZ5KLS1Pp0qeaPkFLTvbn4eMafapasYnC1GQ6eKknoJh/zS2GDVXKDnZSwXFOc0iIfgAvucJwJgGlNKjoYYJpg1/V8tjIFjatGO/iKpFMC8XKzvrWyf5sypW1rZVtiiahAiHbFxJrMU8PjXQwl/1Wq7cgyQidVGmdofQv4T0CqjHjL2GSCcYY5DMfGGBK21ZtRLkJKgl91Bo8hhJxYszmmkO9tCkcmWsgMgG1BDOh2CIJ5rKhBRJsEKCUYPkW6PkGOsN7JHYwyiPqmbZWgN5zbfPfMOtYx7+Mv5MNkqRw/i3AAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE5LTAxLTA5VDAzOjAwOjQ2KzA4OjAwQW/saAAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOS0wMS0wOVQwMzowMDo0NiswODowMDAyVNQAAABDdEVYdHNvZnR3YXJlAC91c3IvbG9jYWwvaW1hZ2VtYWdpY2svc2hhcmUvZG9jL0ltYWdlTWFnaWNrLTcvL2luZGV4Lmh0bWy9tXkKAAAAGHRFWHRUaHVtYjo6RG9jdW1lbnQ6OlBhZ2VzADGn/7svAAAAGHRFWHRUaHVtYjo6SW1hZ2U6OkhlaWdodAAxMjhDfEGAAAAAF3RFWHRUaHVtYjo6SW1hZ2U6OldpZHRoADEyONCNEd0AAAAZdEVYdFRodW1iOjpNaW1ldHlwZQBpbWFnZS9wbmc/slZOAAAAF3RFWHRUaHVtYjo6TVRpbWUAMTU0Njk3NDA0NktaAtgAAAARdEVYdFRodW1iOjpTaXplADI5NjNCi8zW6wAAAGJ0RVh0VGh1bWI6OlVSSQBmaWxlOi8vL2hvbWUvd3d3cm9vdC9uZXdzaXRlL3d3dy5lYXN5aWNvbi5uZXQvY2RuLWltZy5lYXN5aWNvbi5jbi9maWxlcy8xMTMvMTEzNzk0Ny5wbmeufgkkAAAAAElFTkSuQmCC"
 
@@ -143,17 +153,10 @@ class TransApp(object):
 
     def __init__(self):
         super(TransApp, self).__init__()
-        self.session = None
         self.task_queue = deque(maxlen=3)
         self.clipboard = QApplication.clipboard()
         self.translater = BaiduTranslater()
         self.init_Ui()
-
-    def init_sess(self):
-        async def get_sess():
-            if self.session is None or self.session.closed:
-                self.session = ClientSession()
-        asyncio.create_task(get_sess())
 
     def init_Ui(self):
         init_from_lang = self.translater.FROM
@@ -172,8 +175,7 @@ class TransApp(object):
                 self.setupUi(self)
 
             def closeEvent(self, event):
-                if app.session is not None and not app.session.closed:
-                    asyncio.create_task(app.session.close())
+                asyncio.create_task(app.close())
                 super(TransUi, self).closeEvent(event)
 
         # self.ui = QUiLoader().load('ui_translate.ui')
@@ -235,7 +237,7 @@ class TransApp(object):
     @Slot()
     def send_query(self):
         query = self.ui.from_textEdit.toPlainText()
-        asyncio.create_task(self.show_result(self.session, query))
+        asyncio.create_task(self.show_result(query))
 
     @Slot()
     def exchange(self):
@@ -250,7 +252,7 @@ class TransApp(object):
         text = self.ui.to_textEdit.toPlainText()
         self.clipboard.setText(text)
 
-    async def show_result(self, session, query: str) -> None:
+    async def show_result(self, query: str) -> None:
         self.task_queue.append(query)
         await asyncio.sleep(0.1)
         if self.task_queue:
@@ -258,7 +260,7 @@ class TransApp(object):
             query = self.task_queue.popleft()
             if query:
                 try:
-                    result = await self.translater.async_trans(session, query)
+                    result = await self.translater.async_trans(query)
                 except AssertionError as e:
                     result = str(e)
                 self.ui.to_textEdit.setPlainText(result)
@@ -267,20 +269,17 @@ class TransApp(object):
                 loop.call_later(1, self.clear_edit)
 
     def show(self):
-        self.init_sess()
         self.ui.show()
 
+    async def close(self):
+        await self.translater.close()
 
-def run_loop(as_tool=False):
-    if (app := QApplication.instance()) is None:
-        app = QApplication(sys.argv)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
     with loop:
         translater = TransApp()
         translater.show()
         loop.run_forever()
-
-
-if __name__ == '__main__':
-    run_loop()

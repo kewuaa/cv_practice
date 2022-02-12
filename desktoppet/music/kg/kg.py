@@ -2,34 +2,27 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 16:17:25
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 18:46:59
-from collections import namedtuple
+# @Last Modified time: 2022-02-11 23:35:49
 from urllib.parse import quote
 import os
 import re
 import time
 import json
-import base64
 import asyncio
-import sys
+
 
 from hzy import fake_ua
-from hzy.aiofile import aiofile
-
-try:
-    from .cookie import cookie
-    from .js_code import kg_js
-except ImportError:
-    from cookie import cookie
-    from js_code import kg_js
+from model import SongInfo
+from model import BaseMusicer
+from .cookie import cookie
+from .js_code import kg_js
 
 
 current_path, _ = os.path.split(os.path.realpath(__file__))
 ua = fake_ua.UserAgent()
-SongInfo = namedtuple('SongInfo', ['text', 'id', 'pic', 'pic_url'])
 
 
-class Musicer(object):
+class Musicer(BaseMusicer):
     """docstring for Musicer."""
 
     SEARCH_URL = 'https://complexsearch.kugou.com/v2/search/song?callback=callback123&keyword={song}&page=1&pagesize=30&bitrate=0&isfuzzy=0&tag=em&inputtype=0&platform=WebFilter&userid=943077582&clientver=2000&iscorrection=1&privilege_filter=0&token=1d8ad00b0dedb733bed729be875518669c98f5ab075e95cf334daffb9b39491b&srcappid=2919&clienttime={time}&mid={time}&uuid={time}&dfid=-&signature={signature}'
@@ -37,49 +30,42 @@ class Musicer(object):
     HEADERS = {
         'user-agent': '',
         'cookie': cookie,
-        'refer': 'https://www.kugou.com/',
+        'referer': 'https://www.kugou.com/',
     }
-    JS_FILE_PATH = os.path.join(current_path, 'kg.js')
     CMD = 'node {path} {encseckey}'
     STR = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwtbitrate=0callback=callback123clienttime={time}clientver=2000dfid=-inputtype=0iscorrection=1isfuzzy=0keyword={song}mid={time}page=1pagesize=30platform=WebFilterprivilege_filter=0srcappid=2919tag=emtoken=1d8ad00b0dedb733bed729be875518669c98f5ab075e95cf334daffb9b39491buserid=943077582uuid={time}NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt'
 
     def __init__(self):
-        super(Musicer, self).__init__()
-        asyncio.create_task(self.load_js())
+        super(Musicer, self).__init__(kg_js, current_path, __name__)
         self.match = re.compile('.*?\(([\\s\\S]*)\)')
         self._id_map = {}
 
-    async def load_js(self):
-        if not os.path.exists(self.JS_FILE_PATH):
-            async with aiofile.open_async(self.JS_FILE_PATH, 'w') as f:
-                b64content = kg_js.encode()
-                content = base64.b64decode(b64content)
-                await f.write(content.decode())
-
-    async def _get_song_info(self, session, song):
+    async def _get_song_info(self, song):
         self.HEADERS['user-agent'] = ua.get_ua()
         time_stamp = int(time.time() * 1000)
         signature = await self._get_params(
             self.STR.format(time=time_stamp, song=song))
-        res = await session.get(
+        res = await self.session.get(
             self.SEARCH_URL.format(
                 time=time_stamp, song=quote(song), signature=signature),
             headers=self.HEADERS)
+        assert (status := res.status) == 200, f'response: {status}'
         result = await res.text()
         result_dict_str = self.match.match(result).group(1)
         result_dict = json.loads(result_dict_str)
         assert not (error := result_dict['error_msg']),\
             f'error during getting song hash: {error}'
         songs = result_dict['data']['lists']
-        return [self._update_id_map(session, song['FileHash'], song['AlbumID'])
+        return [self._update_id_map(song['FileHash'], song['AlbumID'])
                 for song in songs]
 
     async def _update_id_map(
-            self, session, filehash: str, album_id: str) -> SongInfo:
+            self, filehash: str, album_id: str) -> SongInfo:
         self.HEADERS['user-agent'] = ua.get_ua()
-        res = await session.get(
+        res = await self.session.get(
             self.SONG_URL.format(filehash=filehash, album_id=album_id),
             headers=self.HEADERS)
+        assert (status := res.status) == 200, f'response: {status}'
         result = await res.text()
         result_dict_str = self.match.match(result).group(1)
         result_dict = json.loads(result_dict_str)
@@ -94,7 +80,7 @@ class Musicer(object):
             os.path.split(pic_url := data["img"])[1],
             pic_url)
 
-    async def _get_song_url(self, session, _id):
+    async def _get_song_url(self, _id):
         assert (url := self._id_map.get(str(_id))) is not None, 'VIP或无版权歌曲，无法播放与下载'
         return url
 
@@ -107,9 +93,3 @@ class Musicer(object):
         assert not stderr, f'subprocess error: {stderr.decode("gbk")}'
         result = stdout.decode('utf-8').strip()
         return result
-
-    @staticmethod
-    async def reset_cookie(cookie: str) -> None:
-        async with aiofile.open_async(
-                os.path.join(current_path, 'cookie.py'), 'w') as f:
-            await f.write(f'cookie = "{cookie}"')

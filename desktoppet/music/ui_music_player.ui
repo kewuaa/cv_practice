@@ -56,6 +56,11 @@
                  <widget class="QComboBox" name="musicercomboBox">
                   <item>
                    <property name="text">
+                    <string>咪咕</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
                     <string>网易云</string>
                    </property>
                   </item>

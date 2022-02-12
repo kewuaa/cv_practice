@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-14 13:00:02
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 20:24:23
+# @Last Modified time: 2022-02-09 12:30:55
 import base64
 import asyncio
 import random
@@ -177,8 +177,6 @@ class Pet(QWidget):
 
     def quit(self):
         self.tray_icon = None
-        self.trans_app.ui.close()
-        self.close()
         QCoreApplication.instance().quit()
 
     def show(self):

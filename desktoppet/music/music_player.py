@@ -2,20 +2,20 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-05 20:49:51
+# @Last Modified time: 2022-02-11 23:40:21
 from io import BytesIO
 from collections.abc import Coroutine
 import os
 import sys
-current_path, _ = os.path.split(os.path.realpath(__file__))
-sys.path.append(os.path.join(current_path, '..'))
+if __name__ == '__main__':
+    sys.path.append('..')
 import json
 import base64
 import asyncio
 
 from hzy.aiofile import aiofile
+from aiohttp import request
 from PIL import Image
-from aiohttp import ClientSession
 from PySide2.QtWidgets import QApplication
 from PySide2.QtWidgets import QMainWindow
 from PySide2.QtWidgets import QWidget
@@ -42,31 +42,29 @@ from PySide2.QtGui import QPixmap
 from PySide2.QtUiTools import QUiLoader
 from qasync import QEventLoop
 
-try:
-    from .pictures import *
-    from .wyy import wyy
-    from .kg import kg
-    from .ui_music_player import Ui_MainWindow
-except ImportError:
-    from pictures import *
-    from wyy import wyy
-    from kg import kg
-    from ui_music_player import Ui_MainWindow
+from pictures import *
+from wyy import wyy
+from kg import kg
+from mg import mg
+from ui_music_player import Ui_MainWindow
 
 
-async def download(session, url, path):
-    res = await session.get(url)
-    async with aiofile.open_async(path, 'wb') as f:
-        await f.write(await res.read())
+current_path, _ = os.path.split(os.path.realpath(__file__))
 
 
-async def download_img(session, url, path):
-    res = await session.get(url)
-    fp = BytesIO(await res.read())
-    img = aiofile.AIOWrapper(Image.open(fp))
-    img = aiofile.AIOWrapper(await img.resize((300, 300), Image.ANTIALIAS))
-    img = aiofile.AIOWrapper(await img.convert('RGB'))
-    await img.save(path)
+async def download(url, path):
+    async with request('GET', url) as res:
+        async with aiofile.open_async(path, 'wb') as f:
+            await f.write(await res.read())
+
+
+async def download_img(url, path):
+    async with request('GET', url) as res:
+        fp = BytesIO(await res.read())
+        img = aiofile.AIOWrapper(Image.open(fp))
+        img = aiofile.AIOWrapper(await img.resize((300, 300), Image.ANTIALIAS))
+        img = aiofile.AIOWrapper(await img.convert('RGB'))
+        await img.save(path)
 
 
 class MyDict(dict):
@@ -110,7 +108,7 @@ class MusicApp(object):
     IMG_PATH = os.path.join(DATA_PATH, 'images')
     DOWNLOAD_PATH = os.path.join(DATA_PATH, 'musics')
     SAVE_PATH = os.path.join(DATA_PATH, 'listen.dump')
-    MAP = {'网易云': 'wyy', '酷狗': 'kg'}
+    MAP = {'网易云': 'wyy', '酷狗': 'kg', '咪咕': 'mg'}
 
     def __init__(self):
         super(MusicApp, self).__init__()
@@ -121,8 +119,6 @@ class MusicApp(object):
             os.mkdir(self.IMG_PATH)
         if not os.path.exists(self.DOWNLOAD_PATH):
             os.mkdir(self.DOWNLOAD_PATH)
-        self.session = None
-        asyncio.create_task(self.init_sess())
         self.song_length = 'oo'
         self.voice = 33
         self.is_mute = False
@@ -130,7 +126,7 @@ class MusicApp(object):
         self.listen_slm = QStringListModel()
         self.download_slm = QStringListModel()
         self.initUi()
-        self.musicer = {'wyy': wyy.Musicer(), 'kg': kg.Musicer()}
+        self.musicer = {'wyy': wyy.Musicer(), 'kg': kg.Musicer(), 'mg': mg.Musicer()}
         self.music_player = QMediaPlayer(parent=self.ui)
         self.music_play_list = QMediaPlaylist(parent=self.ui)
         self.music_play_list.setPlaybackMode(QMediaPlaylist.Loop)
@@ -158,10 +154,6 @@ class MusicApp(object):
                         self.music_play_list.addMedia(await self._get_mediacontent(_id))
                         self.to_listen[song_info] = _id
 
-    async def init_sess(self):
-        if self.session is None or self.session.closed:
-            self.session = ClientSession()
-
     def initUi(self):
         app = self
 
@@ -178,8 +170,7 @@ class MusicApp(object):
                 result = QMessageBox.question(self, '请确认', '是否确认关闭',
                                               QMessageBox.Yes | QMessageBox.No)
                 if result == QMessageBox.Yes:
-                    if app.session is not None and not app.session.closed:
-                        asyncio.create_task(app.session.close())
+                    asyncio.create_task(app.close())
                     self.save()
                     event.accept()
                 else:
@@ -574,7 +565,7 @@ class MusicApp(object):
 
     async def search_song(self, song, musicer):
         try:
-            songs_info = await self.musicer[musicer]._get_song_info(self.session, song)
+            songs_info = await self.musicer[musicer]._get_song_info(song)
         except AssertionError as e:
             QMessageBox.critical(self.ui, 'error', str(e))
             self.ui.inputlineEdit.clear()
@@ -600,7 +591,7 @@ class MusicApp(object):
                 #         path := os.path.join(
                 #             self.IMG_PATH, song_info.pic)):
                 #     asyncio.create_task(
-                #         download_img(self.session, song_info.pic_url, path))
+                #         download_img(song_info.pic_url, path))
                 # song_label.setToolTip(f'<img src={path} >')
                 # await asyncio.sleep(0)
 
@@ -626,19 +617,19 @@ class MusicApp(object):
                 path := os.path.join(
                     self.IMG_PATH, song_info.pic)):
             asyncio.create_task(
-                download_img(self.session, song_info.pic_url, path))
+                download_img(song_info.pic_url, path))
         song_label.setToolTip(f'<img src={path} >')
 
     async def download_music(self, song_info, path):
         try:
             url = await self._get_url(self.to_download[song_info])
-            await download(self.session, url, path)
+            await download(url, path)
         finally:
             self.to_download.pop(song_info)
 
     async def _get_url(self, _id):
         try:
-            url = await self.musicer[_id[1]]._get_song_url(self.session, _id[0])
+            url = await self.musicer[_id[1]]._get_song_url(_id[0])
         except AssertionError as e:
             asyncio.current_task().cancel()
             try:
@@ -658,8 +649,11 @@ class MusicApp(object):
             return url
 
     def show(self):
-        asyncio.create_task(self.init_sess())
         self.ui.show()
+
+    async def close(self):
+        for musicer in self.musicer.values():
+            await musicer.close()
 
 
 if __name__ == '__main__':
