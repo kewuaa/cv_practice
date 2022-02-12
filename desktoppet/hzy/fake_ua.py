@@ -2,10 +2,8 @@
 # @Author: kewuaa
 # @Date:   2022-01-23 08:28:50
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-11 22:33:51
+# @Last Modified time: 2022-02-12 08:33:37
 import random
-
-import requests as req
 
 
 browsers = {
