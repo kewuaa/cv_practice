@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-13 21:18:36
+# @Last Modified time: 2022-02-13 21:51:10
 from io import BytesIO
 from collections.abc import Coroutine
 import os
@@ -42,12 +42,12 @@ from PySide2.QtGui import QPixmap
 from PySide2.QtUiTools import QUiLoader
 from qasync import QEventLoop
 
-from model import CookieInvalidError
-from pictures import *
-from wyy import wyy
-from kg import kg
-from mg import mg
-from ui_music_player import Ui_MainWindow
+from .model import CookieInvalidError
+from .pictures import *
+from .wyy import wyy
+from .kg import kg
+from .mg import mg
+from .ui_music_player import Ui_MainWindow
 
 
 current_path, _ = os.path.split(os.path.realpath(__file__))

@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-07 00:40:21
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-13 21:12:57
+# @Last Modified time: 2022-02-13 21:48:34
 from urllib.parse import quote
 from yarl import URL
 import os
@@ -15,11 +15,11 @@ from lxml.html import fromstring
 
 from hzy import fake_ua
 from hzy.aiofile.aiofile import AsyncFuncWrapper
-from model import BaseMusicer
-from model import SongInfo
-from model import CookieInvalidError
-from AES import encrypt
-from RSA import RSA
+from ..model import BaseMusicer
+from ..model import SongInfo
+from ..model import CookieInvalidError
+from ..AES import encrypt
+from ..RSA import RSA
 from .cookie import cookie
 from .setting import *
 

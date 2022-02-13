@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 16:17:25
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-13 15:18:25
+# @Last Modified time: 2022-02-13 21:47:49
 from urllib.parse import quote
 import os
 import re
@@ -12,8 +12,8 @@ import asyncio
 
 
 from hzy import fake_ua
-from model import SongInfo
-from model import BaseMusicer
+from ..model import SongInfo
+from ..model import BaseMusicer
 from .cookie import cookie
 from .js_code import kg_js
 

@@ -2,13 +2,13 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 13:30:14
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-13 15:18:54
+# @Last Modified time: 2022-02-13 21:47:07
 import os
 import asyncio
 
 from hzy import fake_ua
-from model import SongInfo
-from model import BaseMusicer
+from ..model import SongInfo
+from ..model import BaseMusicer
 from .js_code import wyy_js
 from .cookie import cookie
 
