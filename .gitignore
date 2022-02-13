@@ -1,13 +1,7 @@
-*.pyc
 *.pkl
 *.zip
 *.jpg
 *.csv
-**/sign.js
-**/kg.js
-**/wyy.js
-*.cookie
-*.list
 **/__pycache__/
 **/dataset/
 **/data/
