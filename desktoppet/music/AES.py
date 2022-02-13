@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-09 19:57:16
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-11 21:38:34
+# @Last Modified time: 2022-02-13 09:13:05
 from Crypto import Random
 from Crypto.Cipher import AES
 import base64
@@ -15,7 +15,7 @@ def pad(data):
 
 
 def unpad(data):
-    return data[:-(data[-1] if type(data[-1]) == int else ord(data[-1]))]
+    return data[:-(data[-1] if isinstance(data[-1], int) else ord(data[-1]))]
 
 
 def bytes_to_key(data, salt, output=48):

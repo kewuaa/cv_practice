@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-01-21 18:36:13
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-11 23:40:21
+# @Last Modified time: 2022-02-13 21:18:36
 from io import BytesIO
 from collections.abc import Coroutine
 import os
@@ -42,6 +42,7 @@ from PySide2.QtGui import QPixmap
 from PySide2.QtUiTools import QUiLoader
 from qasync import QEventLoop
 
+from model import CookieInvalidError
 from pictures import *
 from wyy import wyy
 from kg import kg
@@ -635,9 +636,8 @@ class MusicApp(object):
             try:
                 await asyncio.sleep(0)
             except asyncio.CancelledError:
-                if _id not in self.to_download.values():
-                    song = ''
-                else:
+                song = ''
+                if _id in self.to_download.values():
                     song = [song_info
                             for song_info, id_ in self.to_download.items()
                             if id_ == _id][0]
@@ -645,6 +645,15 @@ class MusicApp(object):
                     self.ui, 'error',
                     f'{song}: {str(e)}' if song else str(e))
                 raise
+        except CookieInvalidError as e:
+            self.ui.statusBar().showMessage(
+                f'当前cookie已失效,正在重新登录......')
+            task = asyncio.create_task(self.musicer[_id[1]].login())
+            task.add_done_callback(lambda x: self.ui.statusBar().showMessage('登录成功！！！'))
+            asyncio.get_running_loop().call_later(
+                3, self.ui.statusBar().showMessage, f'current download path: {self.DOWNLOAD_PATH}')
+            asyncio.current_task().cancel()
+            await asyncio.sleep(0)
         else:
             return url
 

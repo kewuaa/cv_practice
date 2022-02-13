@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 13:30:14
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-11 23:35:44
+# @Last Modified time: 2022-02-13 15:18:54
 import os
 import asyncio
 
@@ -38,7 +38,8 @@ class Musicer(BaseMusicer):
     # '{"ids": "[1293886117]","level":"standard","encodeType":"aac","csrf_token":""}'
 
     def __init__(self):
-        super(Musicer, self).__init__(wyy_js, current_path, __name__)
+        super(Musicer, self).__init__(
+            js=wyy_js, current_path=current_path, name=__name__)
 
     async def _get_song_info(self, song):
         self.HEADERS['user-agent'] = ua.get_ua()
@@ -78,7 +79,7 @@ class Musicer(BaseMusicer):
 
     async def _get_params(self, request_str: str) -> str:
         proc = await asyncio.create_subprocess_shell(
-            self.CMD.format(path=self.JS_FILE_PATH, request_str=request_str),
+            self.CMD.format(path=self.js_path, request_str=request_str),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
         stdout, stderr = await proc.communicate()

@@ -2,7 +2,7 @@
 # @Author: kewuaa
 # @Date:   2022-02-04 16:17:25
 # @Last Modified by:   None
-# @Last Modified time: 2022-02-11 23:35:49
+# @Last Modified time: 2022-02-13 15:18:25
 from urllib.parse import quote
 import os
 import re
@@ -36,7 +36,8 @@ class Musicer(BaseMusicer):
     STR = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwtbitrate=0callback=callback123clienttime={time}clientver=2000dfid=-inputtype=0iscorrection=1isfuzzy=0keyword={song}mid={time}page=1pagesize=30platform=WebFilterprivilege_filter=0srcappid=2919tag=emtoken=1d8ad00b0dedb733bed729be875518669c98f5ab075e95cf334daffb9b39491buserid=943077582uuid={time}NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt'
 
     def __init__(self):
-        super(Musicer, self).__init__(kg_js, current_path, __name__)
+        super(Musicer, self).__init__(
+            js=kg_js, current_path=current_path, name=__name__)
         self.match = re.compile('.*?\(([\\s\\S]*)\)')
         self._id_map = {}
 
@@ -86,7 +87,7 @@ class Musicer(BaseMusicer):
 
     async def _get_params(self, encseckey):
         proc = await asyncio.create_subprocess_shell(
-            self.CMD.format(path=self.JS_FILE_PATH, encseckey=encseckey),
+            self.CMD.format(path=self.js_path, encseckey=encseckey),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
         stdout, stderr = await proc.communicate()
