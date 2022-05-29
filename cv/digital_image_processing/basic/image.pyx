@@ -5,7 +5,7 @@
 #
 #                       Author: kewuaa
 #                      Created: 2022-05-22 19:17:17
-#                last modified: 2022-05-27 23:36:13
+#                last modified: 2022-05-29 10:45:04
 #******************************************************************#
 # cython: language_level=3
 # cython: boundscheck=False
@@ -69,6 +69,34 @@ cdef class DoubleComplexMemory:
     cdef double complex[:, ::1] init_2dview(self, unsigned int rows, unsigned int cols):
         self.view2d = <double complex[: rows, : cols]> self._data
         return self.view2d
+
+
+cpdef cnp.ndarray[double, ndim=2] BGR2GRAY(double[:, :, ::1] img):
+    """灰度转换.
+
+    Args:
+    img:
+        三通道图像
+
+    Returns:
+        灰度图像
+    """
+
+    cdef:
+        unsigned i, j, k
+        unsigned int rows = img.shape[0]
+        unsigned int cols = img.shape[1]
+        unsigned int channels = img.shape[2]
+        double transform_array[3]
+        double[:, ::1] result_mem
+        cnp.ndarray[double, ndim=2] result = np.ones([rows, cols])
+    transform_array = [0.0722, 0.7152, 0.2126]
+    result_mem = result
+    for i in range(rows):
+        for j in range(cols):
+            for k in range(channels):
+                result_mem[i, j] += img[i, j, k] * transform_array[k]
+    return result
 
 
 cdef fused double_or_double_complex_arr1d:
@@ -335,7 +363,7 @@ cpdef cnp.ndarray[double, ndim=2] spacial_filter(double[:, :] img, double[:, :] 
 
     Args:
     img:
-        输入图像
+        输入图像(单通道)
     kernel:
         滤波核
 
@@ -364,16 +392,16 @@ cpdef cnp.ndarray[double, ndim=2] spacial_filter(double[:, :] img, double[:, :] 
         for j in range(cols):
             temp_view2[i, j] *= temp_view1[i, j]
     fft_img = ifft2_(temp_view2)
-    return np.abs(fft_img.view2d[kernel_rows / 2:, kernel_cols / 2:])
+    return np.abs(fft_img.view2d[kernel_rows - 1:, kernel_cols - 1:])
 
 
-cdef DoubleMemory init_gaussian_kernel(unsigned int kernel_row, unsigned int kernel_col, double sigma):
+cdef DoubleMemory init_gaussian_kernel(unsigned int kernel_rows, unsigned int kernel_cols, double sigma):
     """初始化高斯核, 对其进行赋值.
 
     Args:
-    kernel_row:
+    kernel_rows:
         核行数
-    kernel_col:
+    kernel_cols:
         核列数
     sigma:
         标准差
@@ -383,30 +411,30 @@ cdef DoubleMemory init_gaussian_kernel(unsigned int kernel_row, unsigned int ker
     """
 
     cdef:
-        DoubleMemory kernel = DoubleMemory(kernel_row * kernel_col)
-        double[:, ::1] kernel_mem = kernel.init_2dview(kernel_row, kernel_col)
-        unsigned int row_move_distance = kernel_row / 2
-        unsigned int col_move_distance = kernel_col / 2
+        DoubleMemory kernel = DoubleMemory(kernel_rows * kernel_cols)
+        double[:, ::1] kernel_mem = kernel.init_2dview(kernel_rows, kernel_cols)
+        unsigned int row_move_distance = kernel_rows / 2
+        unsigned int col_move_distance = kernel_cols / 2
         unsigned int i, j
         double s = 0.
         double modulus
-    for i in range(kernel_row):
-        for j in range(kernel_col):
+    for i in range(kernel_rows):
+        for j in range(kernel_cols):
             modulus = c_pow(<double> i - row_move_distance, 2.) + c_pow(<double> j - col_move_distance, 2.)
             kernel_mem[i, j] = c_exp(-modulus / c_pow(sigma, 2.) / 2)
             s += kernel_mem[i, j]
-    for i in range(kernel_row):
-        for j in range(kernel_col):
+    for i in range(kernel_rows):
+        for j in range(kernel_cols):
             kernel_mem[i, j] /= s
     return kernel
 
 
-cpdef cnp.ndarray[double, ndim=2] gaussian_filter(double[:, :] img, int kernel_size, double sigma):
+cpdef cnp.ndarray[double, ndim=2] gaussian_filter(double[:, :] img, unsigned int kernel_rows, unsigned int kernel_cols, double sigma):
     """高斯滤波.
 
     Args:
     img:
-        输入图像
+        输入图像(单通道)
     kernel_size:
         滤波核大小
     sigma:
@@ -419,17 +447,17 @@ cpdef cnp.ndarray[double, ndim=2] gaussian_filter(double[:, :] img, int kernel_s
     cdef:
         DoubleMemory kernel
         cnp.ndarray[double, ndim=2] result
-    kernel = init_gaussian_kernel(kernel_size, kernel_size, sigma)
+    kernel = init_gaussian_kernel(kernel_rows, kernel_cols, sigma)
     result = spacial_filter(img, kernel.view2d)
     return result
 
 
-cpdef cnp.ndarray[double, ndim=2] mean_filter(double[:, :] img, int kernel_size):
+cpdef cnp.ndarray[double, ndim=2] mean_filter(double[:, :] img, unsigned int kernel_rows, unsigned int kernel_cols):
     """均值滤波.
 
     Args:
     img:
-        输入图像
+        输入图像(单通道)
     kernel_size:
         滤波核大小
 
@@ -438,16 +466,31 @@ cpdef cnp.ndarray[double, ndim=2] mean_filter(double[:, :] img, int kernel_size)
     """
 
     cdef:
-        int size = kernel_size * kernel_size
-        DoubleMemory kernel = DoubleMemory(size)
-        double[:, ::1] kernel_mem = kernel.init_2dview(kernel_size, kernel_size)
-        cnp.ndarray[double, ndim=2] result
-    kernel_mem[:] = 1. / <double> size
-    result = spacial_filter(img, kernel_mem)
+        int size = kernel_rows * kernel_cols
+        unsigned int i, j, k, l
+        unsigned int rows = img.shape[0] - kernel_rows + 1
+        unsigned int cols = img.shape[1] - kernel_cols + 1
+        double sum_ = 0.
+        double[:, :] window_mem
+        double[:, ::1] result_mem
+        cnp.ndarray[double, ndim=2] result = np.empty([rows, cols])
+    result_mem = result
+    for i in range(rows):
+        for j in range(cols):
+            if j == 0:
+                window_mem = img[i: i + kernel_rows, : kernel_cols]
+                sum_ = 0.
+                for k in range(kernel_rows):
+                    for l in range(kernel_cols):
+                        sum_ += window_mem[k, l]
+            else:
+                for k in range(kernel_rows):
+                    sum_ -= img[i + k, j - 1] - img[i + k, j + kernel_cols - 1]
+            result_mem[i, j] = sum_ / size
     return result
 
 
-cpdef cnp.ndarray[double, ndim=2] median_filter(double[:, :] img, unsigned int kernel_size):
+cpdef cnp.ndarray[double, ndim=2] median_filter(double[:, :] img, unsigned int kernel_rows, unsigned int kernel_cols):
     """快速中值滤波.
 
     Args:
@@ -457,72 +500,157 @@ cpdef cnp.ndarray[double, ndim=2] median_filter(double[:, :] img, unsigned int k
         滤波核大小
 
     Returns:
-        结果数组
+        返回滤波结果
     """
 
     cdef:
         int cum_sum = 0
         int left, right
-        int threshold = kernel_size * kernel_size / 2
+        int threshold = kernel_rows * kernel_cols / 2
         int histongram[256]
-        int[::1] histongram_mem
-        unsigned int rows = img.shape[0] - kernel_size + 1
-        unsigned int cols = img.shape[1] - kernel_size + 1
+        int[::1] histongram_mem = histongram
+        unsigned int rows = img.shape[0] - kernel_rows + 1
+        unsigned int cols = img.shape[1] - kernel_cols + 1
         unsigned int i, j, k, l
         double[:, ::1] result_mem
         double [:, :] window_mem
         double median = 0.
         cnp.ndarray[double, ndim=2] result = np.empty([rows, cols])
     result_mem = result
-    histongram_mem = histongram
-    with nogil:
-        for i in range(rows):
-            for j in range(cols):
-                if j == 0:
-                    window_mem = img[i: kernel_size, j: kernel_size]
-                    cum_sum = 0
-                    # 初始化直方图
-                    histongram_mem[:] = 0
-                    # 更新直方图
-                    for k in range(kernel_size):
-                        for l in range(kernel_size):
-                            histongram_mem[<int> window_mem[k, l]] += 1
-                    # 通过计算累计直方图得到中值
-                    for k in range(256):
+    for i in range(rows):
+        for j in range(cols):
+            if j == 0:
+                window_mem = img[i: i + kernel_rows, : kernel_cols]
+                cum_sum = 0
+                # 初始化直方图
+                histongram_mem[:] = 0
+                # 更新直方图
+                for k in range(kernel_rows):
+                    for l in range(kernel_cols):
+                        histongram_mem[<int> window_mem[k, l]] += 1
+                # 通过计算累计直方图得到中值
+                for k in range(256):
+                    cum_sum += histongram_mem[k]
+                    if cum_sum >= threshold:
+                        median = <double> k + 1
+                        break
+            else:
+                # 减去最左边的一列, 加上最右边一列
+                for k in range(kernel_rows):
+                    left = <int> img[i + k, j - 1]
+                    histongram_mem[left] -= 1
+                    if left < median:
+                        cum_sum -= 1
+                    elif left == median:
+                        for l in range(<unsigned int> median, 256):
+                            if histongram_mem[l] != 0:
+                                median = <double> l
+                                break
+                    right = <int> img[i + k, j + kernel_cols - 1]
+                    histongram_mem[right] += 1
+                    if right < median:
+                        cum_sum += 1
+                # 小于中值个数小于阈值则以当前中值为起点继续累加直到cum_sum超过阈值
+                if cum_sum < threshold:
+                    for k in range(<unsigned int> median, 256):
                         cum_sum += histongram_mem[k]
                         if cum_sum >= threshold:
                             median = <double> k + 1
                             break
-                else:
-                    # 减去最左边的一列, 加上最右边一列
-                    for k in range(kernel_size):
-                        left = <int> img[i + k, j - 1]
-                        histongram_mem[left] -= 1
-                        if left < median:
-                            cum_sum -= 1
-                        elif left == median:
-                            for l in range(<unsigned int> median, 256):
-                                if histongram_mem[l] != 0:
-                                    median = <double> l
-                                    break
-                        right = <int> img[i + k, j + kernel_size - 1]
-                        histongram_mem[right] += 1
-                        if right < median:
-                            cum_sum += 1
-                    # 小于中值个数小于阈值则以当前中值为起点继续累加直到cum_sum超过阈值
-                    if cum_sum < threshold:
-                        for k in range(<unsigned int> median, 256):
-                            cum_sum += histongram_mem[k]
-                            if cum_sum >= threshold:
-                                median = <double> k + 1
-                                break
-                    # 小于中值个数大于阈值则以当前中值减一为起点累减直到cum_sum回到阈值
-                    elif cum_sum > threshold:
-                        for k in range(<unsigned int> median - 1, -1, -1):
-                            cum_sum -= histongram_mem[k]
-                            if cum_sum <= threshold:
-                                median = <double> k
-                                break
-                result_mem[i, j] = median
+                # 小于中值个数大于阈值则以当前中值减一为起点累减直到cum_sum回到阈值
+                elif cum_sum > threshold:
+                    for k in range(<unsigned int> median - 1, -1, -1):
+                        cum_sum -= histongram_mem[k]
+                        if cum_sum <= threshold:
+                            median = <double> k
+                            break
+            result_mem[i, j] = median
     return result
+
+
+ctypedef bint (*MaxMin)(double, double)
+
+
+cdef bint bigger(double a, double b):
+    return a > b
+
+
+cdef bint smaller(double a, double b):
+    return a < b
+
+
+cdef DoubleMemory max_min_filter(double[:, :] img, unsigned int kernel_rows, unsigned int kernel_cols, bint filter_type):
+    """最值滤波器.
+
+    Args:
+    img:
+        输入图像(单通道)
+    kernel_size:
+        核大小
+    filter_type:
+        取最大或最小
+
+    Returns:
+        结果视图
+    """
+
+    cdef:
+        int step = 1
+        int histongram[256]
+        int[::1] histongram_mem = histongram
+        unsigned int i, j, k, l
+        unsigned int rows = img.shape[0] - kernel_rows + 1
+        unsigned int cols = img.shape[1] - kernel_cols + 1
+        double base = 256.
+        double pixel = 0.
+        double v = 0.
+        double left, right
+        MaxMin compare_func = smaller
+        double[:, :] window_mem
+        double[:, ::1] result_mem
+        DoubleMemory result = DoubleMemory(rows * cols)
+    result_mem = result.init_2dview(rows, cols)
+    if filter_type:
+        base = 0.
+        step = -1
+        compare_func = bigger
+    for i in range(rows):
+        for j in range(cols):
+            if j == 0:
+                window_mem = img[i: i + kernel_rows, : kernel_cols]
+                histongram_mem[:] = 0
+                v = base
+                for k in range(kernel_rows):
+                    for l in range(kernel_cols):
+                        pixel = window_mem[k, l]
+                        histongram_mem[<int> pixel] += 1
+                        if compare_func(pixel, v):
+                            v = pixel
+            else:
+                for k in range(kernel_rows):
+                    left = img[i + k, j - 1]
+                    right = img[i + k, j + kernel_cols - 1]
+                    histongram_mem[<int> left] -= 1
+                    histongram_mem[<int> right] += 1
+                    if compare_func(right, v):
+                        pixel = right
+                if compare_func(pixel, v):
+                    v = pixel
+                else:
+                    while 1:
+                        if histongram_mem[<int> v] > 0:
+                            break
+                        v += step
+            result_mem[i, j] = v
+    return result
+
+
+cpdef cnp.ndarray[double, ndim=2] max_filter(double[:, :] img, unsigned int kernel_rows, unsigned int kernel_cols):
+    cdef DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, 1)
+    return np.array(result.view2d)
+
+
+cpdef cnp.ndarray[double, ndim=2] min_filter(double[:, :] img, unsigned int kernel_rows, unsigned int kernel_cols):
+    cdef DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, 0)
+    return np.array(result.view2d)
 
