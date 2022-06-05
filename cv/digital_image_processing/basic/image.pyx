@@ -5,7 +5,7 @@
 #
 #                       Author: kewuaa
 #                      Created: 2022-05-22 19:17:17
-#                last modified: 2022-06-05 19:40:32
+#                last modified: 2022-06-05 19:43:35
 #******************************************************************#
 # cython: language_level=3
 # cython: boundscheck=False
@@ -430,13 +430,13 @@ cdef DoubleComplexMemory fft2_(double[:, :] array):
     with nogil:
         if c_log2(cols) % 1 == 0:
             for i in prange(rows):
-                fft_by_recursion[double[:]](temp_view[i, ...], array[i, ...])
+                fft_[double[:]](temp_view[i, ...], array[i, ...])
         else:
             for i in prange(rows):
                 fft_by_recursion[double[:]](temp_view[i, ...], array[i, ...])
         if c_log2(rows) % 1 == 0:
             for i in prange(cols):
-                fft_by_recursion[complex[:]](result_view[..., i], temp_view[..., i])
+                fft_[complex[:]](result_view[..., i], temp_view[..., i])
         else:
             for i in prange(cols):
                 fft_by_recursion[complex[:]](result_view[..., i], temp_view[..., i])
