@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 #******************************************************************#
 #
-#                     Filename: image.pyx
+#                     Filename: pyimg.pyx
 #
 #                       Author: kewuaa
 #                      Created: 2022-05-22 19:17:17
-#                last modified: 2022-06-05 19:43:35
+#                last modified: 2022-06-07 23:23:31
 #******************************************************************#
 # cython: language_level=3
 # cython: boundscheck=False
@@ -16,6 +16,7 @@ from libc.math cimport sin as c_sin
 from libc.math cimport cos as c_cos
 from libc.math cimport exp as c_exp
 from libc.math cimport log2 as c_log2
+from libc.math cimport lround
 from libc.math cimport hypot
 from libc.math cimport fdim
 from libc.math cimport pi
@@ -263,6 +264,7 @@ cdef void *fft_(double complex[:] result_view, double_or_double_complex_arr1d ar
         int bit = <int> c_log2(<double> N) - 1
         double complex e, o, w
     step = N >> bit
+    # 位逆序置换
     for i in range(N):
         pos = 0
         for j in range(bit + 1):
@@ -444,7 +446,8 @@ cdef DoubleComplexMemory fft2_(double[:, :] array):
 
 
 cpdef cnp.ndarray[double complex, ndim=2] fft2(double[:, :] array):
-    cdef DoubleComplexMemory result = fft2_(array)
+    cdef:
+        DoubleComplexMemory result = fft2_(array)
     return np.array(result.view2d, dtype=complex)
 
 
@@ -485,8 +488,48 @@ cdef DoubleComplexMemory ifft2_(double complex[:, :] array):
 
 
 cpdef cnp.ndarray[double complex, ndim=2] ifft2(double complex[:, :] array):
-    cdef DoubleComplexMemory result = ifft2_(array)
+    cdef:
+        DoubleComplexMemory result = ifft2_(array)
     return np.array(result.view2d, dtype=complex)
+
+cdef void *fftshift_(double complex[:, :] array):
+    cdef:
+        Py_ssize_t rows = array.shape[0]
+        Py_ssize_t cols = array.shape[1]
+        Py_ssize_t center_row = rows / 2
+        Py_ssize_t center_col = cols / 2
+        DoubleComplexMemory temp = DoubleComplexMemory(rows * cols)
+        double complex[:, :] temp_view = temp.init_2dview(rows, cols)
+    temp_view[:] = array
+    array[-center_row:, -center_col:] = temp_view[: center_row, : center_col]
+    array[-center_row:, : cols - center_col] = temp_view[: center_row, center_col:]
+    array[: rows - center_row, -center_col:] = temp_view[center_row:, : center_col]
+    array[: rows - center_row, : cols - center_col] = temp_view[center_row:, center_col:]
+
+
+cpdef cnp.ndarray[double complex, ndim=2] fftshift(double complex[:, :] array):
+    fftshift_(array)
+    return np.array(array)
+
+
+cdef void *ifftshift_(double complex[:, :] array):
+    cdef:
+        Py_ssize_t rows = array.shape[0]
+        Py_ssize_t cols = array.shape[1]
+        Py_ssize_t center_row = rows / 2
+        Py_ssize_t center_col = cols / 2
+        DoubleComplexMemory temp = DoubleComplexMemory(rows * cols)
+        double complex[:, :] temp_view = temp.init_2dview(rows, cols)
+    temp_view[:] = array
+    array[: center_row, : center_col] = temp_view[-center_row:, -center_col:]
+    array[: center_row, center_col:] = temp_view[-center_row:, : cols - center_col]
+    array[center_row:, : center_col] = temp_view[: rows - center_row, -center_col:]
+    array[center_row:, center_col:] = temp_view[: rows - center_row, : cols - center_col]
+
+
+cpdef cnp.ndarray[double complex, ndim=2] ifftshift(double complex[:, :] array):
+    ifftshift_(array)
+    return np.array(array)
 
 
 cpdef cnp.ndarray[double, ndim=2] spacial_filter(double[:, :] img, double[:, :] kernel):
@@ -564,8 +607,8 @@ cdef DoubleMemory init_gaussian_kernel(Py_ssize_t kernel_rows, Py_ssize_t kernel
     cdef:
         DoubleMemory kernel = DoubleMemory(kernel_rows * kernel_cols)
         double[:, ::1] kernel_view = kernel.init_2dview(kernel_rows, kernel_cols)
-        Py_ssize_t row_move_distance = kernel_rows / 2
-        Py_ssize_t col_move_distance = kernel_cols / 2
+        Py_ssize_t row_move_distance = kernel_rows / 2 + 1
+        Py_ssize_t col_move_distance = kernel_cols / 2 + 1
         Py_ssize_t i, j
         double s = 0.
         double modulus
@@ -601,6 +644,42 @@ cpdef cnp.ndarray[double, ndim=2] gaussian_filter(double[:, :] img, Py_ssize_t k
     kernel = init_gaussian_kernel(kernel_rows, kernel_cols, sigma)
     result = spacial_filter(img, kernel.view2d)
     return result
+
+
+cpdef cnp.ndarray[double, ndim=2] gaussian_low_pass(double[:, :] img, double sigma):
+    """高斯低通滤波器.
+
+    Args:
+    img:
+        输入图像(单通道)
+    sigma:
+        标准差
+
+    Returns:
+        返回滤波结果
+    """
+
+    cdef:
+        Py_ssize_t i, j
+        Py_ssize_t rows = img.shape[0]
+        Py_ssize_t cols = img.shape[1]
+        DoubleMemory kernel
+        DoubleComplexMemory fft_img
+        double center
+        double[:, ::1] kernel_view
+        double complex[:, ::1] fft_img_view
+    fft_img = fft2_(img)
+    fft_img_view = fft_img.view2d
+    kernel = init_gaussian_kernel(rows, cols, sigma)
+    kernel_view = kernel.view2d
+    center = kernel_view[rows / 2 + 1, cols / 2 + 1]
+    fftshift_(fft_img_view)
+    for i in range(rows):
+        for j in range(cols):
+            fft_img_view[i, j] *= kernel_view[i, j] / center
+    ifftshift_(fft_img_view)
+    fft_img = ifft2_(fft_img_view)
+    return np.abs(fft_img.view2d)
 
 
 cpdef cnp.ndarray[double, ndim=2] mean_filter(double[:, :] img, Py_ssize_t kernel_rows, Py_ssize_t kernel_cols):
@@ -754,7 +833,7 @@ cdef DoubleMemory max_min_filter(double[:, :] img, Py_ssize_t kernel_rows, Py_ss
         Py_ssize_t i, j, k, l
         Py_ssize_t rows = img.shape[0] - kernel_rows + 1
         Py_ssize_t cols = img.shape[1] - kernel_cols + 1
-        double base = 256.
+        double base = 255.
         double pixel = 0.
         double v = 0.
         double left, right
@@ -776,22 +855,23 @@ cdef DoubleMemory max_min_filter(double[:, :] img, Py_ssize_t kernel_rows, Py_ss
                 for k in range(kernel_rows):
                     for l in range(kernel_cols):
                         pixel = window_view[k, l]
-                        histongram_view[<int> pixel] += 1
+                        histongram_view[lround(pixel)] += 1
                         if compare_func(pixel, v):
                             v = pixel
             else:
+                pixel = v
                 for k in range(kernel_rows):
                     left = img[i + k, j - 1]
                     right = img[i + k, j + kernel_cols - 1]
-                    histongram_view[<int> left] -= 1
-                    histongram_view[<int> right] += 1
-                    if compare_func(right, v):
+                    histongram_view[lround(left)] -= 1
+                    histongram_view[lround(right)] += 1
+                    if compare_func(right, pixel):
                         pixel = right
                 if compare_func(pixel, v):
                     v = pixel
                 else:
                     while 1:
-                        if histongram_view[<int> v] > 0:
+                        if histongram_view[lround(v)] > 0:
                             break
                         v += step
             result_view[i, j] = v
@@ -799,12 +879,76 @@ cdef DoubleMemory max_min_filter(double[:, :] img, Py_ssize_t kernel_rows, Py_ss
 
 
 cpdef cnp.ndarray[double, ndim=2] max_filter(double[:, :] img, Py_ssize_t kernel_rows, Py_ssize_t kernel_cols):
-    cdef DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, 1)
+    cdef:
+        DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, 1)
     return np.array(result.view2d)
 
 
 cpdef cnp.ndarray[double, ndim=2] min_filter(double[:, :] img, Py_ssize_t kernel_rows, Py_ssize_t kernel_cols):
-    cdef DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, 0)
+    cdef:
+        DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, 0)
+    return np.array(result.view2d)
+
+
+cpdef cnp.ndarray[int, ndim=2] morphology(int[:, :] img, Py_ssize_t kernel_rows, Py_ssize_t kernel_cols, bint flag):
+    """形态学处理.
+
+    Args:
+    img:
+        输入图像(单通道)
+    kernel_rows:
+        核行数
+    kernel_cols:
+        核列数
+    flag:
+        0腐蚀
+        1膨胀
+
+    Returns:
+        返回结果
+    """
+
+    cdef:
+        Py_ssize_t i, j, k, l
+        Py_ssize_t rows = img.shape[0] - kernel_rows + 1
+        Py_ssize_t cols = img.shape[1] - kernel_cols + 1
+        int histongram[2]
+        int[:, :] window_view
+        int[::1] histongram_view = histongram
+        cnp.ndarray[int, ndim=2] result = np.empty([rows, cols], dtype=np.int32)
+        int[:, ::1] result_view = result
+    with nogil:
+        for i in range(rows):
+            for j in range(cols):
+                if j == 0:
+                    histongram_view[:] = 0
+                    window_view = img[i: i + kernel_rows, : kernel_cols]
+                    for k in range(kernel_rows):
+                        for l in range(kernel_cols):
+                            if window_view[k, l] > 0:
+                                histongram_view[1] += 1
+                            else:
+                                histongram_view[0] += 1
+                else:
+                    for k in range(kernel_rows):
+                        if img[i + k, j - 1] > 0:
+                            histongram_view[1] -= 1
+                        else:
+                            histongram_view[0] -= 1
+                        if img[i + k, j + kernel_cols - 1] > 0:
+                            histongram_view[1] += 1
+                        else:
+                            histongram_view[0] += 1
+                if histongram_view[flag] > 0:
+                    result_view[i, j] = 255 * flag
+                else:
+                    result_view[i, j] = 255 * (not flag)
+    return result
+
+
+cpdef cnp.ndarray[double, ndim=2] general_morphology(double[:, :] img, Py_ssize_t kernel_rows, Py_ssize_t kernel_cols, bint flag):
+    cdef:
+        DoubleMemory result = max_min_filter(img, kernel_rows, kernel_cols, flag)
     return np.array(result.view2d)
 
 
