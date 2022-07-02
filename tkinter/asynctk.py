@@ -5,7 +5,7 @@
 #
 #                       Author: kewuaa
 #                      Created: 2022-06-20 15:16:07
-#                last modified: 2022-07-02 10:42:56
+#                last modified: 2022-07-02 19:26:30
 #******************************************************************#
 from functools import partial
 from functools import wraps
@@ -172,14 +172,14 @@ class AsyncTk(tk.Tk):
     __lock = threading.Lock()
     __first_init = True
 
-    def __new__(cls, exit_all: bool = False):
+    def __new__(cls):
         if cls.__instance is None:
             with cls.__lock:
                 if cls.__instance is None:
                     cls.__instance = super().__new__(cls)
         return cls.__instance
 
-    def __init__(self, exit_all: bool = False) -> None:
+    def __init__(self) -> None:
         """初始化.
 
         Args:
@@ -194,7 +194,6 @@ class AsyncTk(tk.Tk):
             with self.__lock:
                 if self.__first_init:
                     super().__init__()
-                    self._exit_all = exit_all
                     # 绑定退出时触发事件
                     self.protocol('WM_DELETE_WINDOW', self.quit_app)
                     self._callback_tasks = {}
