@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.2">
+  <object class="tk.Toplevel" id="main_toplevel">
+    <property name="height">200</property>
+    <property name="width">200</property>
+    <child>
+      <object class="ttk.Frame" id="top_frame">
+        <property name="height">200</property>
+        <property name="width">200</property>
+        <layout manager="pack">
+          <property name="expand">true</property>
+          <property name="fill">both</property>
+          <property name="side">top</property>
+        </layout>
+        <child>
+          <object class="tk.Label" id="input_label">
+            <property name="bitmap">gray12</property>
+            <property name="height">300</property>
+            <property name="relief">ridge</property>
+            <property name="width">300</property>
+            <layout manager="pack">
+              <property name="expand">true</property>
+              <property name="fill">both</property>
+              <property name="padx">3</property>
+              <property name="pady">3</property>
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="ttk.Button" id="switch_button">
+            <property name="command" type="command" cbtype="simple">switch</property>
+            <property name="width">3</property>
+            <layout manager="pack">
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="tk.Label" id="output_label">
+            <property name="bitmap">gray12</property>
+            <property name="height">300</property>
+            <property name="relief">ridge</property>
+            <property name="width">300</property>
+            <layout manager="pack">
+              <property name="expand">true</property>
+              <property name="fill">both</property>
+              <property name="padx">3</property>
+              <property name="pady">3</property>
+              <property name="side">left</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="ttk.Button" id="open_button">
+        <property name="command" type="command" cbtype="simple">open_camera</property>
+        <property name="text" translatable="yes">open</property>
+        <layout manager="pack">
+          <property name="anchor">w</property>
+          <property name="padx">9</property>
+          <property name="pady">3</property>
+          <property name="side">top</property>
+        </layout>
+      </object>
+    </child>
+    <child>
+      <object class="ttk.Button" id="close_button">
+        <property name="command" type="command" cbtype="simple">close_camera</property>
+        <property name="state">disabled</property>
+        <property name="text" translatable="yes">close</property>
+        <layout manager="pack">
+          <property name="anchor">w</property>
+          <property name="padx">9</property>
+          <property name="pady">3</property>
+          <property name="side">top</property>
+        </layout>
+      </object>
+    </child>
+    <child>
+      <object class="pygubu.builder.widgets.toplevelmenu" id="toplevelmenu">
+        <child>
+          <object class="tk.Menu" id="main_menu">
+            <property name="tearoff">false</property>
+            <child>
+              <object class="tk.Menuitem.Submenu" id="file_submenu">
+                <property name="label" translatable="yes">file</property>
+                <property name="takefocus">false</property>
+                <property name="tearoff">false</property>
+                <child>
+                  <object class="tk.Menuitem.Command" id="open_command">
+                    <property name="command" type="command" cbtype="simple">open_from_file</property>
+                    <property name="label" translatable="yes">open</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
