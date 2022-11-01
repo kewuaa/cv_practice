@@ -1,9 +1,2 @@
-*.pkl
-*.zip
-*.jpg
-*.csv
+*.xml
 **/__pycache__/
-**/dataset/
-**/data/
-**/gesture_recognition/
-**/resources/
